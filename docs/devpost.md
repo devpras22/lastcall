@@ -49,12 +49,13 @@ We wanted closing out to take one photo and one tap, with everyone paid through 
 5. **Approve and pay.** One **PayPal Payouts** batch pays everyone to their PayPal email or Venmo phone. The payout wall flips each ticket to "paid" as PayPal confirms each payout (verified webhooks, with status polling as a backup).
 6. **A receipt for every worker.** Each person gets a link with their share worked out line by line. If something's off (*"I stayed till 1am"*), Claude checks the claim against the board photo. If it's plausible, the manager approves and a **top-up payout** goes out.
 7. **A ledger** of every night and every share, in AG Grid.
+8. **Your own restaurant, in two minutes.** Name, house rules, staff. Workers add their own PayPal email or Venmo number from a staff link or QR code on their phone, so the manager never types anyone's details. Anyone who isn't set up yet has their share held, not lost, and paid in a follow-up PayPal batch once they add it.
 
-The demo needs no sign-up. Every visitor gets a fresh copy of a sample taqueria, and real PayPal sandbox money moves.
+The demo needs no sign-up. Close out a sample taqueria's night in one click, or set up your own restaurant and staff. Real PayPal sandbox money moves either way.
 
 ### How we built it
 - **PayPal REST API, called directly:**
-  - **Payouts v1**: batch payouts and single-item top-ups;
+  - **Payouts v1**: one batch for the night, follow-up batches for held shares, and single-item top-ups;
   - **Orders v2** with the **JS SDK** buttons: guest tips;
   - **Webhooks**: `PAYMENT.PAYOUTS-ITEM.*` events, each verified with PayPal's verify-webhook-signature and deduplicated by event id;
   - **OAuth 2.0** client credentials.
