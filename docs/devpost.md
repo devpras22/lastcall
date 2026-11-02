@@ -4,11 +4,11 @@ Copy each block into the matching Devpost field.
 
 ---
 
-## Project name
-Last Call
+## Project name (max 60)
+Last Call: Tip Pools Paid by PayPal Before Close
 
 ## Elevator pitch (max 200 characters)
-Snap the shift board, say the house rules once. Claude reads it, code splits the tip pool to the cent, and PayPal Payouts pays every server, busser and cook before close.
+Snap the shift board and everyone’s tips land in PayPal before they clock out. Claude reads the hours. Code does the math. No napkins, no cash, no POS.
 
 ## Try it out (links)
 - https://lastcall-tips.vercel.app
