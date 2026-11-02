@@ -1,7 +1,7 @@
 import { hrs, money } from "../lib/owner";
-import { Check, Spinner, Alert } from "./icons";
+import { Check, Spinner, Alert, Info } from "./icons";
 
-export type PayoutStatus = "none" | "pending" | "success" | "unclaimed" | "failed";
+export type PayoutStatus = "none" | "held" | "pending" | "success" | "unclaimed" | "failed";
 
 export function StatusText({ status, wallet }: { status: PayoutStatus; wallet?: string | null }) {
   const to = wallet === "VENMO" ? "Venmo" : "PayPal";
@@ -9,6 +9,7 @@ export function StatusText({ status, wallet }: { status: PayoutStatus; wallet?: 
   if (status === "pending") return <span className="status status--pending" role="status"><Spinner />Sending to {to}</span>;
   if (status === "unclaimed") return <span className="status status--unclaimed"><Alert />Waiting to be claimed</span>;
   if (status === "failed") return <span className="status status--failed"><Alert />Didn’t go through</span>;
+  if (status === "held") return <span className="status status--held"><Info />Held for their PayPal or Venmo</span>;
   return <span className="status status--pending">Not in the pool</span>;
 }
 

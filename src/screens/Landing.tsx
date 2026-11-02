@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { navigate } from "../lib/router";
+import { navigate, onLinkClick } from "../lib/router";
 import { setOwnerKey } from "../lib/owner";
 import { ProblemDialog, toProblem, type Problem } from "../ui/Problem";
 import { Ticket } from "../ui/Ticket";
@@ -46,8 +46,9 @@ export default function Landing() {
               {busy ? "Opening Rosa’s…" : "Close out a demo night"}
               {!busy && <Arrow />}
             </button>
-            <span className="small muted">A sample taqueria, nine staff, real PayPal sandbox.</span>
+            <a className="btn btn--big" href="/setup" onClick={onLinkClick}>Set up your restaurant</a>
           </div>
+          <p className="small muted" style={{ marginTop: "var(--space-sm)" }}>The demo is a sample taqueria with nine staff. Both run on real PayPal sandbox money.</p>
           <ProblemDialog problem={problem} onClose={() => setProblem(null)} onRetry={start} />
         </div>
         <div className="land__rail" aria-label="Example night: each share is a ticket on the rail">

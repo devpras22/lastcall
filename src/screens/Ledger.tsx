@@ -49,7 +49,7 @@ export default function Ledger() {
       { field: "amount", headerName: "Tip-out", width: 120, type: "rightAligned", cellClass: "mono", valueFormatter: (p) => usd(p.value), aggFunc: "sum" },
       { field: "topUp", headerName: "Top-ups", width: 110, type: "rightAligned", cellClass: "mono", valueFormatter: (p) => (p.value ? usd(p.value) : "") },
       { field: "perHour", headerName: "Per hour", width: 110, type: "rightAligned", cellClass: "mono", valueFormatter: (p) => (p.value ? usd(p.value) : "") },
-      { field: "status", headerName: "Payout", width: 120, filter: true, valueFormatter: (p) => ({ success: "Paid", pending: "Sending", none: "Not in pool", failed: "Failed", unclaimed: "Unclaimed" })[p.value as string] ?? p.value },
+      { field: "status", headerName: "Payout", width: 120, filter: true, valueFormatter: (p) => ({ success: "Paid", held: "Held", pending: "Sending", none: "Not in pool", failed: "Failed", unclaimed: "Unclaimed" })[p.value as string] ?? p.value },
       { field: "dispute", headerName: "Correction", width: 130, filter: true, valueFormatter: (p) => ({ paid: "Topped up", proposed: "Needs OK", declined: "Closed", checking: "Checking", approved: "Sending" })[p.value as string] ?? "" },
     ],
     [],

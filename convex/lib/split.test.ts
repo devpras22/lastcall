@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocate, split, type Rules, type Shift } from "./split";
+import { allocate, canonicalRole, split, type Rules, type Shift } from "./split";
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -76,5 +76,13 @@ describe("split", () => {
     const x = split(500, rosas, { ...rules, offTheTop: [{ role: "kitchen", percent: 140 }] });
     expect(x.flags.some((f) => f.code === "bad_percent")).toBe(true);
     expect(sum(x.lines.map((l) => l.amountCents))).toBe(500);
+  });
+});
+
+describe("canonicalRole", () => {
+  it("maps board shorthand to policy roles", () => {
+    expect(["line", "Dish", "prep cook", "BOH"].map(canonicalRole)).toEqual(["kitchen", "kitchen", "kitchen", "kitchen"]);
+    expect(["bar", "MGR", "busboy", "Hostess", "svr"].map(canonicalRole)).toEqual(["bartender", "manager", "busser", "host", "server"]);
+    expect(canonicalRole("sommelier")).toBe("sommelier");
   });
 });

@@ -14,6 +14,8 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
   const ownerKey = getOwnerKey() ?? "";
   const data = useQuery(api.nights.get, ownerKey ? { ownerKey, nightId } : "skip");
   const retry = useMutation(api.nights.retryPayout);
+  const payHeld = useMutation(api.nights.payHeld);
+  const [heldErr, setHeldErr] = useState("");
   const payoutPop = useStoredProblem(data?.night.payoutProblem, `payout:${nightId}`);
   if (!ownerKey) return <CloseOutHome />;
   if (data === undefined)
@@ -30,6 +32,8 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
     );
 
   const paidLines = lines.filter((l) => l.amountCents > 0);
+  const held = paidLines.filter((l) => l.payoutStatus === "held");
+  const heldReady = held.filter((l) => data.preview.lines.find((p) => p.key === l.key)?.worker?.receiver);
   const done = paidLines.filter((l) => l.payoutStatus === "success");
   const sent = done.reduce((a, l) => a + l.amountCents, 0);
   const origin = location.origin;
@@ -60,6 +64,17 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
         </div>
       )}
 
+      {held.length > 0 && (
+        <div className="notice" style={{ marginBottom: "var(--space-md)" }}>
+          <Info />
+          <span>
+            <strong>{money(held.reduce((a, l) => a + l.amountCents, 0))} held for {held.length} {held.length === 1 ? "person" : "people"}</strong> until they add a PayPal email or Venmo number. {heldReady.length > 0
+              ? <button type="button" className="linkbtn" onClick={async () => { setHeldErr(""); try { await payHeld({ ownerKey, nightId }); } catch (e) { setHeldErr(toProblem(e).message); } }}>Send {heldReady.length} held {heldReady.length === 1 ? "payout" : "payouts"} now</button>
+              : <a className="linkbtn" href="/staff" onClick={onLinkClick}>Share the staff link</a>}
+            {heldErr && <> {heldErr}</>}
+          </span>
+        </div>
+      )}
       <div className="rail">
         <div className="tickets" style={{ marginTop: "var(--space-lg)" }}>
           {lines.map((l) => (

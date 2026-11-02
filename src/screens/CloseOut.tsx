@@ -86,6 +86,9 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
   for (const f of preview.flags) if (f.key && byKey.get(f.key) !== "error") byKey.set(f.key, f.severity);
   const blocking = preview.flags.filter((f) => f.severity === "error" && f.code !== "manager_in_pool");
   const paid = preview.lines.filter((l) => l.amountCents > 0);
+  const nowLines = paid.filter((l) => l.worker?.receiver);
+  const heldCents = paid.filter((l) => l.worker && !l.worker.receiver).reduce((a, l) => a + l.amountCents, 0);
+  const nowCents = nowLines.reduce((a, l) => a + l.amountCents, 0);
   const ready = night.status === "review" && !!restaurant.rules && blocking.length === 0 && preview.totals.totalCents > 0;
 
   async function pay() {
@@ -131,9 +134,10 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
               <span className="mono">{money(preview.totals.totalCents)} to {paid.length} {paid.length === 1 ? "person" : "people"}</span>
             </div>
 
+            {!locked && night.shifts.length > 0 && <StaffFixes ownerKey={ownerKey} lines={preview.lines} flags={preview.flags} />}
             {preview.flags.length > 0 && night.shifts.length > 0 && (
               <ul className="flags" style={{ marginBottom: "var(--space-md)" }}>
-                {preview.flags.map((f, i) => (
+                {preview.flags.filter((f) => f.message).map((f, i) => (
                   <li key={i} className={`flag flag--${f.severity}`}>{f.severity === "error" ? <Alert /> : <Info />}<span>{f.message}</span></li>
                 ))}
               </ul>
@@ -158,10 +162,10 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
             {!locked && night.shifts.length > 0 && (
               <div style={{ marginTop: "var(--space-lg)", display: "grid", gap: "var(--space-xs)" }}>
                 <button type="button" className="btn btn--go btn--big btn--block" onClick={pay} disabled={!ready || paying} aria-busy={paying}>
-                  {paying ? <><Spinner />Sending to PayPal…</> : `Approve and pay ${money(paid.reduce((a, l) => a + l.amountCents, 0))}`}
+                  {paying ? <><Spinner />Sending to PayPal…</> : heldCents > 0 ? (nowCents > 0 ? `Approve: pay ${money(nowCents)} now, hold ${money(heldCents)}` : `Approve and hold ${money(heldCents)}`) : `Approve and pay ${money(nowCents)}`}
                 </button>
                 <p className={`help${payError || blocking.length ? " help--error" : ""}`} role="alert">
-                  {payError || (blocking.length ? "Fix the red items above first." : !restaurant.rules ? "Waiting on the house rules." : `One PayPal batch, ${paid.length} payouts. Each person gets a receipt link.`)}
+                  {payError || (blocking.length ? "Fix the red items above first." : !restaurant.rules ? "Waiting on the house rules." : heldCents > 0 ? `One PayPal batch for ${nowLines.length} ready now. The rest is held until they add their PayPal or Venmo.` : `One PayPal batch, ${nowLines.length} payouts. Each person gets a receipt link.`)}
                 </p>
               </div>
             )}
@@ -179,6 +183,29 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** One-tap fixes for the two blockers a real restaurant hits first: names not on the staff list, and missing payout details. */
+function StaffFixes({ ownerKey, lines, flags }: { ownerKey: string; lines: { key: string; name: string; role: string; amountCents: number; worker: unknown }[]; flags: { code: string }[] }) {
+  const addToStaff = useMutation(api.restaurants.addToStaff);
+  const [busy, setBusy] = useState(false);
+  const missing = lines.filter((l) => l.amountCents > 0 && !l.worker);
+  const noPayout = flags.filter((f) => f.code === "no_payout").length;
+  if (!missing.length && !noPayout) return null;
+  return (
+    <div className="notice" style={{ marginBottom: "var(--space-md)" }}>
+      <Info />
+      <span className="row">
+        {missing.length > 0 && (
+          <button type="button" className="btn" disabled={busy} aria-busy={busy} onClick={async () => {
+            setBusy(true);
+            try { await addToStaff({ ownerKey, people: missing.map((l) => ({ name: l.name, role: l.role })) }); } finally { setBusy(false); }
+          }}>Add {missing.length === 1 ? missing[0].name : `${missing.length} names`} to staff</button>
+        )}
+        {(noPayout > 0 || missing.length > 0) && <a className="linkbtn" href="/staff" onClick={onLinkClick}>Share the staff link</a>}
+      </span>
     </div>
   );
 }
@@ -274,12 +301,10 @@ function BoardStep(p: { ownerKey: string; nightId: Id<"nights">; status: string;
             <button type="button" className={`btn ${p.count ? "btn--quiet" : ""}`} onClick={() => input.current?.click()} disabled={busy} aria-busy={busy}>
               {busy ? <Spinner /> : <Camera />}{p.count ? "Retake photo" : "Take or upload a photo"}
             </button>
-            {p.demo && (
-              <button type="button" className="btn btn--quiet" disabled={busy} onClick={async () => {
-                const r = await fetch("/demo/rosas-board.jpg");
-                await send(await r.blob());
-              }}>Use Rosa’s board photo</button>
-            )}
+            <button type="button" className="btn btn--quiet" disabled={busy} onClick={async () => {
+              const r = await fetch("/demo/rosas-board.jpg");
+              await send(await r.blob());
+            }}>{p.demo ? "Use Rosa’s board photo" : "Try a sample board photo"}</button>
           </div>
         )}
       </div>

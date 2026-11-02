@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import * as claude from "./lib/ai";
 import { DEMO_BOARD_FIXTURE } from "./lib/demo";
-import { fmt, isManagerRole, split } from "./lib/split";
+import { canonicalRole, fmt, isManagerRole, split } from "./lib/split";
 import { rulesV } from "./schema";
 import { fromClaude, problemV } from "./lib/problems";
 
@@ -96,7 +96,7 @@ export const readBoard = internalAction({
       const shifts = read.shifts.slice(0, 60).map((s, i) => ({
         key: `b${i}`,
         name: s.name.slice(0, 60),
-        role: s.role.toLowerCase().slice(0, 30),
+        role: canonicalRole(s.role).slice(0, 30),
         hours: Math.max(0, Math.min(24, Math.round(s.hours * 4) / 4)),
         clockIn: s.clockIn || undefined,
         clockOut: s.clockOut || undefined,

@@ -9,6 +9,9 @@ import Wall from "./screens/Wall";
 import Receipt from "./screens/Receipt";
 import Ledger from "./screens/Ledger";
 import Tip from "./screens/Tip";
+import Setup from "./screens/Setup";
+import Staff from "./screens/Staff";
+import Join from "./screens/Join";
 import { ScreenBoundary } from "./ui/Problem";
 import type { Id } from "../convex/_generated/dataModel";
 
@@ -19,6 +22,7 @@ export default function App() {
   // Worker and guest pages stand alone on a phone: no manager chrome.
   if (seg[0] === "r" && seg[1]) return <ScreenBoundary><Receipt token={seg[1]} /></ScreenBoundary>;
   if (seg[0] === "tip" && seg[1]) return <ScreenBoundary><Tip slug={seg[1]} /></ScreenBoundary>;
+  if (seg[0] === "join" && seg[1]) return <ScreenBoundary><Join token={seg[1]} /></ScreenBoundary>;
 
   let screen: React.ReactNode;
   let current = "";
@@ -26,6 +30,8 @@ export default function App() {
   else if (seg[0] === "close") { screen = <CloseOutHome />; current = "close"; }
   else if (seg[0] === "wall" && seg[1]) { screen = <Wall nightId={seg[1] as Id<"nights">} />; current = "wall"; }
   else if (seg[0] === "ledger") { screen = <Ledger />; current = "ledger"; }
+  else if (seg[0] === "staff") { screen = <Staff />; current = "staff"; }
+  else if (seg[0] === "setup") { screen = <Setup />; current = "setup"; }
   else screen = <Landing />;
 
   return (
@@ -45,7 +51,7 @@ function Shell({ current }: { current: string }) {
       <div className="container shell__in">
         <a className="wordmark" href="/" onClick={onLinkClick} aria-label="Last Call home">
           <Logo />
-          Last Call
+          <span className="wordmark__text">Last Call</span>
         </a>
         {mine && <span className="shell__place">{mine.restaurant.name}</span>}
         {mine && (
@@ -54,6 +60,7 @@ function Shell({ current }: { current: string }) {
             {latest && (latest.status === "paying" || latest.status === "paid") && (
               <a href={`/wall/${latest._id}`} onClick={onLinkClick} aria-current={current === "wall" ? "page" : undefined}>Payout wall</a>
             )}
+            <a href="/staff" onClick={onLinkClick} aria-current={current === "staff" ? "page" : undefined}>Staff</a>
             <a href="/ledger" onClick={onLinkClick} aria-current={current === "ledger" ? "page" : undefined}>Ledger</a>
           </nav>
         )}

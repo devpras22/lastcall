@@ -5,6 +5,7 @@ import { flagV, shiftV } from "./schema";
 import { ownedNight, ownedRestaurant, randomToken } from "./lib/access";
 import { buildPreview, matchWorker } from "./lib/preview";
 import { problemV } from "./lib/problems";
+import { canonicalRole } from "./lib/split";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -86,7 +87,7 @@ export const editShift = mutation({
     const { restaurant, night } = await ownedNight(ctx, a.ownerKey, a.nightId);
     if (night.status === "paying" || night.status === "paid") throw new ConvexError("This night is already paid out.");
     if (!(a.hours >= 0 && a.hours <= 24)) throw new ConvexError("Hours must be between 0 and 24.");
-    const name = a.name.trim().slice(0, 60), role = a.role.trim().toLowerCase().slice(0, 30);
+    const name = a.name.trim().slice(0, 60), role = canonicalRole(a.role).slice(0, 30);
     if (!a.remove && (!name || !role)) throw new ConvexError("Name and role are required.");
     const workers = await ctx.db.query("workers").withIndex("by_restaurant", (q) => q.eq("restaurantId", restaurant._id)).collect();
     let shifts = night.shifts;
@@ -123,7 +124,7 @@ export const approve = mutation({
         pool: l.pool,
         why: l.why,
         receiptToken: randomToken(12),
-        payoutStatus: l.amountCents > 0 ? "pending" : "none",
+        payoutStatus: l.amountCents <= 0 ? "none" : l.worker?.receiver ? "pending" : "held",
       });
     }
     await ctx.db.patch(nightId, { status: "paying", senderBatchId: `lc-${nightId}` });
@@ -151,6 +152,23 @@ export const retryBoard = mutation({
     if (night.status !== "open" || !night.boardStorageId) throw new ConvexError("Take a photo of the board first.");
     await ctx.db.patch(nightId, { status: "reading", boardProblem: undefined, boardError: undefined });
     await ctx.scheduler.runAfter(0, internal.ai.readBoard, { nightId });
+  },
+});
+
+/** Send the shares that were held because the worker hadn't added payout details yet. */
+export const payHeld = mutation({
+  args: { ownerKey: v.string(), nightId: v.id("nights") },
+  handler: async (ctx, { ownerKey, nightId }) => {
+    const { restaurant, night } = await ownedNight(ctx, ownerKey, nightId);
+    if (night.status !== "paying" && night.status !== "paid") throw new ConvexError("Pay the night first.");
+    const workers = await ctx.db.query("workers").withIndex("by_restaurant", (q) => q.eq("restaurantId", restaurant._id)).collect();
+    const lines = await ctx.db.query("lines").withIndex("by_night", (q) => q.eq("nightId", nightId)).collect();
+    const ready = lines.filter((l) => l.payoutStatus === "held" && l.workerId && workers.find((w) => w._id === l.workerId)?.receiver);
+    if (!ready.length) throw new ConvexError("No one with a held share has added their payout details yet.");
+    for (const l of ready) await ctx.db.patch(l._id, { payoutStatus: "pending", payoutNote: undefined });
+    if (night.status === "paid") await ctx.db.patch(nightId, { status: "paying" });
+    await ctx.scheduler.runAfter(0, internal.payouts.sendHeld, { nightId, lineIds: ready.map((l) => l._id) });
+    return ready.length;
   },
 });
 

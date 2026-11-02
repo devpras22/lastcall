@@ -28,12 +28,19 @@ export function buildPreview(restaurant: Doc<"restaurants">, night: Doc<"nights"
     rules,
   );
   const flags: Flag[] = [...result.flags];
+  const waiting: { key: string; name: string }[] = [];
   const lines = result.lines.map((l) => {
     const shift = night.shifts.find((s) => s.key === l.key)!;
     const worker = shift.workerId ? workers.find((w) => w._id === shift.workerId) ?? null : matchWorker(l.name, workers);
     if (l.amountCents > 0 && !worker)
-      flags.push({ severity: "error", code: "not_on_roster",key: l.key, message: `${l.name} isn't on the staff list, so there's nowhere to send ${(l.amountCents / 100).toFixed(2)}. Add them or fix the name.` });
-    return { ...l, clockIn: shift.clockIn, clockOut: shift.clockOut, confidence: shift.confidence, worker: worker ? { _id: worker._id, name: worker.name, wallet: worker.wallet, receiver: worker.receiver } : null };
+      flags.push({ severity: "error", code: "not_on_roster", key: l.key, message: `${l.name} isn’t on the staff list yet, so there’s nowhere to send $${(l.amountCents / 100).toFixed(2)}. Add them to the staff, or fix the name.` });
+    else if (l.amountCents > 0 && worker && !worker.receiver) waiting.push({ key: l.key, name: worker.name });
+    return { ...l, clockIn: shift.clockIn, clockOut: shift.clockOut, confidence: shift.confidence, worker: worker ? { _id: worker._id, name: worker.name, wallet: worker.wallet ?? null, receiver: worker.receiver ?? null } : null };
   });
+  if (waiting.length) {
+    const names = waiting.length <= 4 ? waiting.map((w) => w.name).join(", ") : `${waiting.slice(0, 3).map((w) => w.name).join(", ")} and ${waiting.length - 3} more`;
+    flags.push({ severity: "warn", code: "no_payout", message: `${names} ${waiting.length === 1 ? "hasn’t" : "haven’t"} added a PayPal email or Venmo number yet. Their ${waiting.length === 1 ? "share is" : "shares are"} held until they do; everyone else is paid now.` });
+    for (const w of waiting) flags.push({ severity: "warn", code: "no_payout_row", key: w.key, message: "" });
+  }
   return { totals, rules, lines, unallocatedCents: result.unallocatedCents, flags: [...flags, ...night.flags] };
 }

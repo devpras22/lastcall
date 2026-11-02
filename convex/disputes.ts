@@ -28,7 +28,7 @@ export const receipt = query({
         payoutStatus: line.payoutStatus, payoutNote: line.payoutNote, clockIn: shift?.clockIn, clockOut: shift?.clockOut,
       },
       wallet: worker?.wallet ?? null,
-      receiverHint: worker ? (worker.recipientType === "PHONE" ? `•••${worker.receiver.slice(-4)}` : worker.receiver.replace(/^(.).*(@.*)$/, "$1•••$2")) : null,
+      receiverHint: worker?.receiver ? (worker.recipientType === "PHONE" ? `•••${worker.receiver.slice(-4)}` : worker.receiver.replace(/^(.).*(@.*)$/, "$1•••$2")) : null,
       disputes: disputes.map((d) => ({ _id: d._id, message: d.message, status: d.status, reply: d.verdict?.split("\n\nFor the manager:")[0], topUpCents: d.topUpCents, topUpStatus: d.topUpStatus, at: d._creationTime })),
     };
   },

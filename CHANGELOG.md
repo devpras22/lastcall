@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Set up your own restaurant (`/setup`): name, house rules, optional staff list. The sample board photo works for any restaurant.
+- Staff page and a join link/QR: workers add their own PayPal email or Venmo number from their phone (`/join/:token`). The manager can reset the link.
+- Pay who's ready, hold the rest: shares for staff without payout details are held, then sent later in their own batch ("Send held payouts").
+- Names from the board join the staff list in one tap. Board shorthand (line, dish, bar, MGR) maps to policy roles in code.
+
 - Guest-tip QR on the close-out screen (PayPal Checkout straight into tonight's pool).
 - Phone: sticky pay bar on the close-out that jumps to the split.
 - Video script in `docs/video-script.md`.

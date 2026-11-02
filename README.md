@@ -4,7 +4,7 @@
 
 **Close out the night's tip pool from one photo of the shift board. Everyone is paid by PayPal before they leave, with a receipt that shows the math.**
 
-**[Try the live demo →](https://lastcall-tips.vercel.app)** No sign-up. You get your own copy of a sample taqueria, and real PayPal sandbox money moves.
+**[Try the live demo →](https://lastcall-tips.vercel.app)** No sign-up. Close out a sample taqueria's night in one click, or set up your own restaurant and staff in two minutes. Real PayPal sandbox money moves either way.
 
 Built for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com).
 
@@ -44,6 +44,11 @@ Tools like Kickfin, TipHaus and 7shifts solve this only if you run a supported P
 <img src="docs/screens/wall-paid.png" alt="Payout wall: nine tickets, all paid">
 <sub>The payout wall. Each ticket flips to paid as PayPal's payout webhooks arrive. Every QR code opens that person's receipt on a phone.</sub>
 
+### Your own restaurant, your own staff
+- **Set up in two minutes:** name, house rules in plain English, and (optionally) a staff list.
+- **Staff add themselves.** The manager shares one link or QR code. Each worker opens it on their phone and adds the PayPal email or Venmo number they want to be paid to; nobody types anyone else's details. Names from tonight's board join the staff list in one tap.
+- **Pay who's ready, hold the rest.** Anyone who hasn't added payout details yet has their share held, not lost. When they add it, one tap sends the held payouts in their own PayPal batch.
+
 ## How PayPal is used
 
 | PayPal API | What it does in Last Call |
@@ -52,6 +57,7 @@ Tools like Kickfin, TipHaus and 7shifts solve this only if you run a supported P
 | **Payouts v1** get batch | Polls item status as a fallback to webhooks. |
 | **Webhooks** `PAYMENT.PAYOUTS-ITEM.*` + verify-webhook-signature | Live status on the payout wall. Every event is verified with PayPal and deduplicated by event id. |
 | **Payouts v1** single-item batch | Top-ups after an approved correction (`sender_batch_id` = the dispute id). |
+| **Payouts v1** follow-up batch | Held shares, once a worker adds their payout details (`sender_batch_id` built from the line ids). |
 | **Orders v2** create + capture, **JS SDK** buttons | Guest tips go straight into tonight's pool, deduplicated by order id. |
 | **OAuth 2.0** client credentials | Server-to-server auth. Keys never reach the browser. |
 

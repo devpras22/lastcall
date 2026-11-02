@@ -32,6 +32,8 @@ export type Flag = {
     | "empty_pool"
     | "bad_percent"
     | "not_on_roster"
+    | "no_payout"
+    | "no_payout_row"
     | "board";
   key?: string;
   message: string;
@@ -62,6 +64,22 @@ const MANAGER_ROLES = /\b(manager|gm|owner|supervisor|director|chef de cuisine|e
 export const isManagerRole = (role: string) => MANAGER_ROLES.test(role);
 
 export const norm = (role: string) => role.trim().toLowerCase();
+
+// Board shorthand → the roles house rules are written in. Deterministic, so a policy about "kitchen" catches line cooks and dish.
+const ROLE_ALIASES: [RegExp, string][] = [
+  [/^(line( cook)?|cook|prep( cook)?|dish(washer)?|dishes|kitchen|boh|back of house|chef|sous( chef)?|expo|pastry|grill|fry|saute)$/, "kitchen"],
+  [/^(bar|bartender|bartend|bt|mixologist)$/, "bartender"],
+  [/^(barback|bar back)$/, "barback"],
+  [/^(bus|busser|busboy|bus boy|busperson|bussing)$/, "busser"],
+  [/^(host|hostess|host stand)$/, "host"],
+  [/^(run|runner|food runner)$/, "runner"],
+  [/^(server|serve|waiter|waitress|wait staff|waitstaff|svr)$/, "server"],
+  [/^(mgr|manager|gm|general manager|agm|mod|manager on duty|floor manager)$/, "manager"],
+];
+export function canonicalRole(role: string) {
+  const r = norm(role).replace(/[.]/g, "");
+  return ROLE_ALIASES.find(([re]) => re.test(r))?.[1] ?? r;
+}
 
 export const fmt = (cents: number) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

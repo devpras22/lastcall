@@ -19,18 +19,24 @@ export const sendNight = internalAction({
     if (!data || data.night.status !== "paying" || data.night.payoutBatchId) return;
     const { night, restaurant, workers, lines } = data;
     const items = lines
-      .filter((l) => l.amountCents > 0 && l.workerId)
+      .filter((l) => l.amountCents > 0 && l.workerId && workers.find((x) => x._id === l.workerId)?.receiver)
       .map((l) => {
         const w = workers.find((x) => x._id === l.workerId)!;
         return {
           senderItemId: l._id,
           cents: l.amountCents,
-          wallet: w.wallet,
-          recipientType: w.recipientType,
-          receiver: w.receiver,
+          wallet: w.wallet ?? "PAYPAL",
+          recipientType: w.recipientType ?? "EMAIL",
+          receiver: w.receiver!,
           note: `Your tips from ${restaurant.name}, ${night.date}: ${fmt(l.amountCents)} for ${l.hours}h. See why: ${APP_URL()}/r/${l.receiptToken}`,
         };
       });
+
+    if (items.length === 0) {
+      // Everyone's share is held until they add payout details.
+      await ctx.runMutation(internal.payouts.settle, { nightId });
+      return;
+    }
 
     if (!paypal.paypalConfigured()) {
       // No sandbox keys yet: simulate the money flow so the UI can be built. Marked on every screen.
@@ -61,6 +67,51 @@ export const sendNight = internalAction({
   },
 });
 
+/** A second batch for shares that were held. sender_batch_id is built from the line ids, so the same set can't be sent twice. */
+export const sendHeld = internalAction({
+  args: { nightId: v.id("nights"), lineIds: v.array(v.id("lines")) },
+  handler: async (ctx, { nightId, lineIds }) => {
+    const data = await ctx.runQuery(internal.nights.internalGet, { nightId });
+    if (!data) return;
+    const { night, restaurant, workers, lines } = data;
+    const items = lines
+      .filter((l) => lineIds.includes(l._id) && l.payoutStatus === "pending")
+      .flatMap((l) => {
+        const w = workers.find((x) => x._id === l.workerId);
+        if (!w?.receiver) return [];
+        return [{ senderItemId: l._id, cents: l.amountCents, wallet: w.wallet ?? "PAYPAL", recipientType: w.recipientType ?? "EMAIL", receiver: w.receiver,
+          note: `Your tips from ${restaurant.name}, ${night.date}: ${fmt(l.amountCents)} for ${l.hours}h. See why: ${APP_URL()}/r/${l.receiptToken}` }];
+      });
+    if (!items.length) return;
+    if (!paypal.paypalConfigured()) {
+      await Promise.all(items.map((it, i) => ctx.scheduler.runAfter(800 + i * 400, internal.payouts.itemStatus, { senderItemId: it.senderItemId, status: "success", itemId: `SIMHELD${i}` })));
+      return;
+    }
+    const batchKey = `lc-h-${[...lineIds].sort().join("").slice(-200)}`;
+    try {
+      const res = await paypal.createPayoutBatch(batchKey, `Your tips from ${restaurant.name} are here`, "Your held share is paid. Tap the link in your note to see how it was worked out.", items);
+      await ctx.scheduler.runAfter(4000, internal.payouts.poll, { batchId: res.batch_header.payout_batch_id, attempt: 0 });
+    } catch (e) {
+      console.error("sendHeld", nightId, e);
+      await ctx.runMutation(internal.payouts.heldFailed, { lineIds: items.map((i) => i.senderItemId as Id<"lines">), problem: fromPayPal(e, "payout") });
+    }
+  },
+});
+
+export const heldFailed = internalMutation({
+  args: { lineIds: v.array(v.id("lines")), problem: problemV },
+  handler: async (ctx, { lineIds, problem }) => {
+    for (const id of lineIds) await ctx.db.patch(id, { payoutStatus: "held", payoutNote: `${problem.title}. ${problem.message}` });
+    const first = lineIds[0] ? await ctx.db.get(lineIds[0]) : null;
+    if (first) await settleNight(ctx, first.nightId);
+  },
+});
+
+export const settle = internalMutation({
+  args: { nightId: v.id("nights") },
+  handler: (ctx, { nightId }) => settleNight(ctx, nightId),
+});
+
 /** Fallback to webhooks: poll the batch with backoff until every item settles. */
 export const poll = internalAction({
   args: { batchId: v.string(), attempt: v.number() },
@@ -88,7 +139,7 @@ export const sendTopUp = internalAction({
   args: { disputeId: v.id("disputes") },
   handler: async (ctx, { disputeId }) => {
     const d = await ctx.runQuery(internal.disputes.internalGet, { disputeId });
-    if (!d || d.dispute.status !== "approved" || !d.dispute.topUpCents || !d.worker || d.dispute.topUpBatchId) return;
+    if (!d || d.dispute.status !== "approved" || !d.dispute.topUpCents || !d.worker?.receiver || d.dispute.topUpBatchId) return;
     const senderItemId = TOPUP + disputeId;
     if (!paypal.paypalConfigured()) {
       await ctx.runMutation(internal.disputes.setTopUp, { disputeId, status: "pending", batchId: `SIM-${disputeId.slice(-8)}` });
@@ -103,8 +154,8 @@ export const sendTopUp = internalAction({
         [{
           senderItemId,
           cents: d.dispute.topUpCents,
-          wallet: d.worker.wallet,
-          recipientType: d.worker.recipientType,
+          wallet: d.worker.wallet ?? "PAYPAL",
+          recipientType: d.worker.recipientType ?? "EMAIL",
           receiver: d.worker.receiver,
           note: `Top-up for ${d.night.date}: ${fmt(d.dispute.topUpCents)}. ${APP_URL()}/r/${d.line.receiptToken}`,
         }],

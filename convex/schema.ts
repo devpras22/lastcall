@@ -29,6 +29,7 @@ export const flagV = v.object({
 
 export const payoutStatusV = v.union(
   v.literal("none"),
+  v.literal("held"), // share is set aside until the worker adds payout details
   v.literal("pending"),
   v.literal("success"),
   v.literal("unclaimed"),
@@ -46,17 +47,21 @@ export default defineSchema({
     policyProblem: v.optional(problemV),
     demo: v.boolean(),
     aiCalls: v.number(),
+    joinToken: v.optional(v.string()), // the link staff use to add their own payout details
   })
     .index("by_slug", ["slug"])
-    .index("by_owner", ["ownerKey"]),
+    .index("by_owner", ["ownerKey"])
+    .index("by_join", ["joinToken"]),
 
   workers: defineTable({
     restaurantId: v.id("restaurants"),
     name: v.string(),
     role: v.string(),
-    wallet: v.union(v.literal("PAYPAL"), v.literal("VENMO")),
-    recipientType: v.union(v.literal("EMAIL"), v.literal("PHONE")),
-    receiver: v.string(),
+    // Payout details are optional: a name can come from the board or the manager first, and the worker adds them via the join link.
+    wallet: v.optional(v.union(v.literal("PAYPAL"), v.literal("VENMO"))),
+    recipientType: v.optional(v.union(v.literal("EMAIL"), v.literal("PHONE"))),
+    receiver: v.optional(v.string()),
+    addedBy: v.optional(v.union(v.literal("demo"), v.literal("manager"), v.literal("board"), v.literal("self"))),
   }).index("by_restaurant", ["restaurantId"]),
 
   nights: defineTable({
@@ -143,5 +148,5 @@ export default defineSchema({
 
   webhookEvents: defineTable({ eventId: v.string(), type: v.string() }).index("by_event", ["eventId"]),
 
-  usage: defineTable({ day: v.string(), aiCalls: v.number() }).index("by_day", ["day"]),
+  usage: defineTable({ day: v.string(), aiCalls: v.number(), restaurants: v.optional(v.number()) }).index("by_day", ["day"]),
 });
