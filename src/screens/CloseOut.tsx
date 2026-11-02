@@ -5,6 +5,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { errText, getOwnerKey, hrs, money } from "../lib/owner";
 import { navigate, onLinkClick } from "../lib/router";
 import { QRCodeSVG } from "qrcode.react";
+import { RolePicker } from "../ui/RolePicker";
 import { Ticket, TicketSkeleton } from "../ui/Ticket";
 import { Alert, Camera, Info, Spinner } from "../ui/icons";
 import { isInputProblem, ProblemDialog, toProblem, useStoredProblem, type Problem } from "../ui/Problem";
@@ -372,7 +373,7 @@ function EditableTicket({ line, flag, ownerKey, nightId, locked }: { line: L; fl
     <Ticket name={line.name} role={line.role} hours={line.hours} amountCents={line.amountCents} clockIn={line.clockIn} clockOut={line.clockOut} why={line.why} flag={flag} showWhy={why}>
       {open ? (
         <form className="ticket__edit" onSubmit={(e) => { e.preventDefault(); save(); }}>
-          <div className="field"><label htmlFor={`r-${line.key}`}>Role</label><input id={`r-${line.key}`} className="input" value={role} onChange={(e) => setRole(e.target.value)} /></div>
+          <div style={{ gridColumn: "1 / -1" }}><RolePicker value={role} onChange={setRole} withManager compact /></div>
           <div className="field"><label htmlFor={`h-${line.key}`}>Hours</label><input id={`h-${line.key}`} className="input" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} /></div>
           <div className="row" style={{ gridColumn: "1 / -1" }}>
             <button type="submit" className="btn">Save</button>
@@ -406,8 +407,8 @@ function AddRow({ ownerKey, nightId, locked }: { ownerKey: string; nightId: Id<"
       try { await edit({ ownerKey, nightId, name, role, hours: Number(hours) }); setOpen(false); setName(""); setHours(""); } catch (x) { setErr(errText(x)); }
     }}>
       <div className="field"><label htmlFor="add-name">Name</label><input id="add-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" /></div>
+      <RolePicker value={role} onChange={setRole} withManager compact />
       <div className="ticket__edit">
-        <div className="field"><label htmlFor="add-role">Role</label><input id="add-role" className="input" value={role} onChange={(e) => setRole(e.target.value)} /></div>
         <div className="field"><label htmlFor="add-h">Hours</label><input id="add-h" className="input" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} /></div>
       </div>
       <div className="row"><button type="submit" className="btn">Add</button><button type="button" className="btn btn--quiet" onClick={() => setOpen(false)}>Cancel</button></div>

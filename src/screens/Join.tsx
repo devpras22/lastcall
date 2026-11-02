@@ -4,8 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { ProblemDialog, toProblem, type Problem } from "../ui/Problem";
 import { Check } from "../ui/icons";
 import { WalletPicker } from "./Staff";
-
-const ROLES = ["server", "bartender", "busser", "host", "runner", "barback", "kitchen"];
+import { RolePicker } from "../ui/RolePicker";
 
 /** What a worker sees when they open the staff link on their phone. */
 export default function Join({ token }: { token: string }) {
@@ -51,10 +50,7 @@ export default function Join({ token }: { token: string }) {
         </div>
         <div className="field"><label htmlFor="j-name">Your name, as it’s written on the schedule</label>
           <input id="j-name" className="input" name="name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></div>
-        <div className="field"><label htmlFor="j-role">Your role</label>
-          <select id="j-role" className="input" name="role" value={role} onChange={(e) => setRole(e.target.value)}>
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select></div>
+        <RolePicker value={role} onChange={setRole} label="Your role" />
         <WalletPicker value={wallet} onChange={setWallet} />
         <div className="field"><label htmlFor="j-pay">{wallet === "VENMO" ? "Phone number on your Venmo" : "Email or phone on your PayPal"}</label>
           <input id="j-pay" className="input" name="receiver" type={wallet === "VENMO" ? "tel" : "text"} inputMode={wallet === "VENMO" ? "tel" : "email"} autoComplete={wallet === "VENMO" ? "tel" : "email"} value={receiver} onChange={(e) => setReceiver(e.target.value)} /></div>

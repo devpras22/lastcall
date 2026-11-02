@@ -6,6 +6,8 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { errText, getOwnerKey } from "../lib/owner";
 import { Check, Info } from "../ui/icons";
 import { CloseOutHome } from "./CloseOut";
+import { RolePicker } from "../ui/RolePicker";
+import { useId } from "react";
 
 type W = { _id: Id<"workers">; name: string; role: string; wallet?: "PAYPAL" | "VENMO"; receiver?: string; addedBy?: string };
 
@@ -77,6 +79,7 @@ export default function Staff() {
 function StaffRow({ w, ownerKey }: { w: W; ownerKey: string }) {
   const remove = useMutation(api.restaurants.removeWorker);
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   if (editing) return <li className="staff__row"><StaffForm ownerKey={ownerKey} w={w} onDone={() => setEditing(false)} /></li>;
   return (
     <li className="staff__row">
@@ -84,10 +87,18 @@ function StaffRow({ w, ownerKey }: { w: W; ownerKey: string }) {
         <strong>{w.name}</strong> <span className="muted small">{w.role}</span>
         <div className="small">{w.receiver ? <span className="status status--success"><Check />{hint(w)}{w.addedBy === "self" ? ", added by them" : ""}</span> : <span className="muted">No payout details yet</span>}</div>
       </div>
-      <div className="row small">
-        <button type="button" className="linkbtn" onClick={() => setEditing(true)}>Edit</button>
-        <button type="button" className="linkbtn" onClick={() => { if (confirm(`Remove ${w.name} from the staff list?`)) remove({ ownerKey, workerId: w._id }); }}>Remove</button>
-      </div>
+      {confirming ? (
+        <div className="row small staff__confirm" role="group" aria-label={`Remove ${w.name}?`}>
+          <span>Remove {w.name.split(" ")[0]}?</span>
+          <button type="button" className="linkbtn linkbtn--danger" autoFocus onClick={() => remove({ ownerKey, workerId: w._id })}>Yes, remove</button>
+          <button type="button" className="linkbtn" onClick={() => setConfirming(false)}>Keep</button>
+        </div>
+      ) : (
+        <div className="row small">
+          <button type="button" className="linkbtn" onClick={() => setEditing(true)}>Edit</button>
+          <button type="button" className="linkbtn" onClick={() => setConfirming(true)}>Remove</button>
+        </div>
+      )}
     </li>
   );
 }
@@ -106,7 +117,7 @@ function StaffForm({ ownerKey, w, onDone }: { ownerKey: string; w?: W; onDone: (
       try { await upsert({ ownerKey, workerId: w?._id, name, role, wallet, receiver }); onDone(); } catch (x) { setErr(errText(x)); }
     }}>
       <div className="field"><label htmlFor={`n-${id}`}>Name</label><input id={`n-${id}`} className="input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" /></div>
-      <div className="field"><label htmlFor={`r-${id}`}>Role</label><input id={`r-${id}`} className="input" value={role} onChange={(e) => setRole(e.target.value)} /></div>
+      <RolePicker value={role} onChange={setRole} withManager />
       <WalletPicker value={wallet} onChange={setWallet} />
       <div className="field"><label htmlFor={`p-${id}`}>{wallet === "VENMO" ? "Venmo phone number" : "PayPal email or phone"} (optional)</label>
         <input id={`p-${id}`} className="input" value={receiver} onChange={(e) => setReceiver(e.target.value)} inputMode={wallet === "VENMO" ? "tel" : "email"} autoComplete="off" /></div>
@@ -117,12 +128,16 @@ function StaffForm({ ownerKey, w, onDone }: { ownerKey: string; w?: W; onDone: (
 }
 
 export function WalletPicker({ value, onChange }: { value: "PAYPAL" | "VENMO"; onChange: (v: "PAYPAL" | "VENMO") => void }) {
+  const id = useId();
+  const opts = [["PAYPAL", "PayPal"], ["VENMO", "Venmo"]] as const;
   return (
     <div className="field">
-      <span className="label" id="wallet-l">Paid to</span>
-      <div className="chips chips--2" role="group" aria-labelledby="wallet-l">
-        <button type="button" className="chip chip--text" aria-pressed={value === "PAYPAL"} onClick={() => onChange("PAYPAL")}>PayPal</button>
-        <button type="button" className="chip chip--text" aria-pressed={value === "VENMO"} onClick={() => onChange("VENMO")}>Venmo</button>
+      <span className="label" id={`${id}-l`}>Paid to</span>
+      <div className="seg" role="radiogroup" aria-labelledby={`${id}-l`}
+        onKeyDown={(e) => { if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) { e.preventDefault(); const next = value === "PAYPAL" ? "VENMO" : "PAYPAL"; onChange(next); (e.currentTarget.querySelector(`[data-v="${next}"]`) as HTMLElement | null)?.focus(); } }}>
+        {opts.map(([v, label]) => (
+          <button key={v} type="button" role="radio" aria-checked={value === v} tabIndex={value === v ? 0 : -1} data-v={v} className="seg__opt" onClick={() => onChange(v)}>{label}</button>
+        ))}
       </div>
     </div>
   );
