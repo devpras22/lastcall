@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { problemV } from "./lib/problems";
 
 export const rulesV = v.object({
   method: v.union(v.literal("hours"), v.literal("points"), v.literal("hours_x_points")),
@@ -42,6 +43,7 @@ export default defineSchema({
     policyText: v.string(),
     rules: v.optional(rulesV),
     rulesSummary: v.optional(v.array(v.string())),
+    policyProblem: v.optional(problemV),
     demo: v.boolean(),
     aiCalls: v.number(),
   })
@@ -69,12 +71,14 @@ export default defineSchema({
     ),
     extraTipsCents: v.number(), // cash/card typed in by the manager
     boardStorageId: v.optional(v.id("_storage")),
-    boardError: v.optional(v.string()),
+    boardError: v.optional(v.string()), // legacy
+    boardProblem: v.optional(problemV),
     shifts: v.array(shiftV),
     flags: v.array(flagV),
     senderBatchId: v.optional(v.string()),
     payoutBatchId: v.optional(v.string()),
-    payoutError: v.optional(v.string()),
+    payoutError: v.optional(v.string()), // legacy
+    payoutProblem: v.optional(problemV),
     simulated: v.optional(v.boolean()),
     paidAt: v.optional(v.number()),
   }).index("by_restaurant", ["restaurantId", "date"]),
@@ -131,6 +135,7 @@ export default defineSchema({
     topUpItemId: v.optional(v.string()),
     topUpBatchId: v.optional(v.string()),
     topUpStatus: v.optional(payoutStatusV),
+    problem: v.optional(problemV),
   })
     .index("by_line", ["lineId"])
     .index("by_night", ["nightId"])

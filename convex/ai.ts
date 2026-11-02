@@ -1,4 +1,4 @@
-import { v, ConvexError } from "convex/values";
+import { v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -6,6 +6,7 @@ import * as claude from "./lib/ai";
 import { DEMO_BOARD_FIXTURE } from "./lib/demo";
 import { fmt, isManagerRole, split } from "./lib/split";
 import { rulesV } from "./schema";
+import { fromClaude, problemV } from "./lib/problems";
 
 type Media = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
@@ -22,7 +23,6 @@ async function image(ctx: { storage: { get: (id: Id<"_storage">) => Promise<Blob
   return { base64: toBase64(await blob.arrayBuffer()), mediaType: (blob.type || "image/jpeg") as Media };
 }
 
-const message = (e: unknown) => (e instanceof ConvexError ? String(e.data) : e instanceof Error ? e.message : "Something went wrong.");
 
 // ---- Policy ----
 
@@ -48,7 +48,7 @@ export const parsePolicy = internalAction({
       await ctx.runMutation(internal.ai.saveRules, { restaurantId, policyText: r.policyText, rules: p.rules, summary: [...p.summary, ...p.ambiguities.map((a) => `Unclear: ${a}`)] });
     } catch (e) {
       console.error("parsePolicy", restaurantId, e);
-      await ctx.runMutation(internal.ai.saveRules, { restaurantId, policyText: r.policyText, rules: undefined, summary: [`Couldn't read the policy: ${message(e)}`] });
+      await ctx.runMutation(internal.ai.saveRules, { restaurantId, policyText: r.policyText, rules: undefined, summary: [], problem: fromClaude(e, "policy") });
     }
   },
 });
@@ -65,11 +65,12 @@ export const saveRules = internalMutation({
     rules: v.optional(rulesV),
     summary: v.array(v.string()),
     simulated: v.optional(v.boolean()),
+    problem: v.optional(problemV),
   },
   handler: async (ctx, a) => {
     const r = await ctx.db.get(a.restaurantId);
     if (!r || r.policyText !== a.policyText) return; // policy changed while we were reading it
-    await ctx.db.patch(a.restaurantId, { rules: a.rules, rulesSummary: a.summary });
+    await ctx.db.patch(a.restaurantId, { rules: a.rules, rulesSummary: a.problem ? undefined : a.summary, policyProblem: a.problem });
   },
 });
 
@@ -110,7 +111,7 @@ export const readBoard = internalAction({
       await ctx.runMutation(internal.nights.applyBoardRead, { nightId, shifts, flags });
     } catch (e) {
       console.error("readBoard", nightId, e);
-      await ctx.runMutation(internal.nights.boardFailed, { nightId, error: message(e) });
+      await ctx.runMutation(internal.nights.boardFailed, { nightId, problem: fromClaude(e, "board") });
     }
   },
 });
@@ -162,7 +163,13 @@ export const reviewDispute = internalAction({
       });
     } catch (e) {
       console.error("reviewDispute", disputeId, e);
-      await ctx.runMutation(internal.disputes.saveVerdict, { disputeId, status: "declined", verdict: `Couldn't check this automatically (${message(e)}). Your manager has your note.` });
+      const problem = fromClaude(e, "dispute");
+      await ctx.runMutation(internal.disputes.saveVerdict, {
+        disputeId,
+        status: "declined",
+        verdict: `I couldn’t check the board automatically just now, so I’ve passed your note straight to your manager.\n\nFor the manager: ${problem.title}. Check the hours by hand.`,
+        problem,
+      });
     }
   },
 });

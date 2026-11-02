@@ -17,6 +17,7 @@ import type * as lib_ai from "../lib/ai.js";
 import type * as lib_demo from "../lib/demo.js";
 import type * as lib_paypal from "../lib/paypal.js";
 import type * as lib_preview from "../lib/preview.js";
+import type * as lib_problems from "../lib/problems.js";
 import type * as lib_split from "../lib/split.js";
 import type * as nights from "../nights.js";
 import type * as payouts from "../payouts.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   "lib/demo": typeof lib_demo;
   "lib/paypal": typeof lib_paypal;
   "lib/preview": typeof lib_preview;
+  "lib/problems": typeof lib_problems;
   "lib/split": typeof lib_split;
   nights: typeof nights;
   payouts: typeof payouts;

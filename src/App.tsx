@@ -9,6 +9,7 @@ import Wall from "./screens/Wall";
 import Receipt from "./screens/Receipt";
 import Ledger from "./screens/Ledger";
 import Tip from "./screens/Tip";
+import { ScreenBoundary } from "./ui/Problem";
 import type { Id } from "../convex/_generated/dataModel";
 
 export default function App() {
@@ -16,8 +17,8 @@ export default function App() {
   const seg = path.split("/").filter(Boolean);
 
   // Worker and guest pages stand alone on a phone: no manager chrome.
-  if (seg[0] === "r" && seg[1]) return <Receipt token={seg[1]} />;
-  if (seg[0] === "tip" && seg[1]) return <Tip slug={seg[1]} />;
+  if (seg[0] === "r" && seg[1]) return <ScreenBoundary><Receipt token={seg[1]} /></ScreenBoundary>;
+  if (seg[0] === "tip" && seg[1]) return <ScreenBoundary><Tip slug={seg[1]} /></ScreenBoundary>;
 
   let screen: React.ReactNode;
   let current = "";
@@ -30,7 +31,7 @@ export default function App() {
   return (
     <>
       <Shell current={current} />
-      <main>{screen}</main>
+      <main><ScreenBoundary key={current + path}>{screen}</ScreenBoundary></main>
     </>
   );
 }

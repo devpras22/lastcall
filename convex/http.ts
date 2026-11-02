@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { httpAction, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import * as paypal from "./lib/paypal";
+import { itemNote } from "./lib/problems";
 
 const http = httpRouter();
 
@@ -42,7 +43,7 @@ http.route({
         senderItemId: r.payout_item.sender_item_id,
         status: paypal.mapItemStatus(r.transaction_status ?? ""),
         itemId: r.payout_item_id,
-        note: r.errors?.message,
+        note: itemNote(r.transaction_status ?? "", r.errors?.name ?? r.errors?.message),
       });
     }
     return new Response("ok");

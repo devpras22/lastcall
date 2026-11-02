@@ -7,6 +7,7 @@ import { navigate, onLinkClick } from "../lib/router";
 import { QRCodeSVG } from "qrcode.react";
 import { Ticket, TicketSkeleton } from "../ui/Ticket";
 import { Alert, Camera, Info, Spinner } from "../ui/icons";
+import { isInputProblem, ProblemDialog, toProblem, useStoredProblem, type Problem } from "../ui/Problem";
 
 /** /close without a night: jump to the latest one, or offer to start. */
 export function CloseOutHome() {
@@ -53,6 +54,11 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
   const ownerKey = getOwnerKey() ?? "";
   const data = useQuery(api.nights.get, ownerKey ? { ownerKey, nightId } : "skip");
   const approve = useMutation(api.nights.approve);
+  const retryBoard = useMutation(api.nights.retryBoard);
+  const retryPolicy = useMutation(api.restaurants.retryPolicy);
+  const [thrown, setThrown] = useState<Problem | null>(null);
+  const boardPop = useStoredProblem(data?.night.boardProblem, `board:${nightId}`);
+  const policyPop = useStoredProblem(data?.restaurant.policyProblem, "policy");
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
   const splitRef = useRef<HTMLElement>(null);
@@ -89,7 +95,9 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
       await approve({ ownerKey, nightId });
       navigate(`/wall/${nightId}`);
     } catch (e) {
-      setPayError(errText(e));
+      const p = toProblem(e);
+      if (isInputProblem(p)) setPayError(p.message);
+      else setThrown(p);
       setPaying(false);
     }
   }
@@ -110,8 +118,9 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
           )}
           <ol className="steps">
             <TipsStep ownerKey={ownerKey} nightId={nightId} totals={preview.totals} tips={tips} slug={restaurant.slug} locked={locked} extra={night.extraTipsCents} />
-            <BoardStep ownerKey={ownerKey} nightId={nightId} status={night.status} boardUrl={boardUrl} boardError={night.boardError} count={night.shifts.length} demo={restaurant.demo} locked={locked} />
-            <PolicyStep ownerKey={ownerKey} text={restaurant.policyText} summary={restaurant.rulesSummary} hasRules={!!restaurant.rules} locked={locked} />
+            <BoardStep ownerKey={ownerKey} nightId={nightId} status={night.status} boardUrl={boardUrl} boardError={night.boardProblem ? `${night.boardProblem.title}. ${night.boardProblem.message}` : night.boardError} onProblem={setThrown} count={night.shifts.length} demo={restaurant.demo} locked={locked} />
+            <PolicyStep ownerKey={ownerKey} text={restaurant.policyText} summary={restaurant.rulesSummary} hasRules={!!restaurant.rules} locked={locked}
+              problem={restaurant.policyProblem} onRetry={() => retryPolicy({ ownerKey })} />
           </ol>
         </div>
 
@@ -133,7 +142,10 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
             {night.status === "reading" ? (
               <div className="tickets" aria-busy="true">{Array.from({ length: 6 }, (_, i) => <TicketSkeleton key={i} />)}</div>
             ) : night.shifts.length === 0 ? (
-              <div className="notice"><Info /><span>Tickets appear here once the shift board is read. Each one is a person’s share, worked out from the house rules.</span></div>
+              <div style={{ display: "grid", gap: "var(--space-md)" }}>
+                <div className="notice"><Info /><span>Tickets appear here once the shift board is read. Each one is a person’s share, worked out from the house rules. No photo? Type the shifts in.</span></div>
+                <AddRow ownerKey={ownerKey} nightId={nightId} locked={locked} />
+              </div>
             ) : (
               <div className="tickets">
                 {(locked ? data.lines : preview.lines).map((l) => (
@@ -156,6 +168,9 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
           </div>
         </section>
       </div>
+      <ProblemDialog problem={thrown} onClose={() => setThrown(null)} onRetry={thrown?.kind === "network" ? pay : undefined} />
+      <ProblemDialog problem={!thrown ? boardPop.open : null} onClose={boardPop.dismiss} onRetry={() => retryBoard({ ownerKey, nightId })} />
+      <ProblemDialog problem={!thrown && !boardPop.open ? policyPop.open : null} onClose={policyPop.dismiss} onRetry={() => retryPolicy({ ownerKey })} />
       {night.shifts.length > 0 && !splitInView && (
         <div className="paybar">
           <span className="money">{money(paid.reduce((a, l) => a + l.amountCents, 0))} <span className="small muted">to {paid.length}</span></span>
@@ -212,7 +227,7 @@ function TipsStep(p: { ownerKey: string; nightId: Id<"nights">; totals: { paypal
   );
 }
 
-function BoardStep(p: { ownerKey: string; nightId: Id<"nights">; status: string; boardUrl: string | null; boardError?: string; count: number; demo: boolean; locked: boolean }) {
+function BoardStep(p: { ownerKey: string; nightId: Id<"nights">; status: string; boardUrl: string | null; boardError?: string; count: number; demo: boolean; locked: boolean; onProblem: (p: Problem) => void }) {
   const uploadUrl = useMutation(api.nights.uploadUrl);
   const setBoard = useMutation(api.nights.setBoard);
   const input = useRef<HTMLInputElement>(null);
@@ -225,11 +240,13 @@ function BoardStep(p: { ownerKey: string; nightId: Id<"nights">; status: string;
     try {
       const url = await uploadUrl({ ownerKey: p.ownerKey });
       const res = await fetch(url, { method: "POST", headers: { "Content-Type": blob.type || "image/jpeg" }, body: blob });
-      if (!res.ok) throw new Error("Upload failed. Check your connection and try again.");
+      if (!res.ok) throw new Error("network: upload failed");
       const { storageId } = await res.json();
       await setBoard({ ownerKey: p.ownerKey, nightId: p.nightId, storageId });
     } catch (e) {
-      setErr(errText(e));
+      const pr = toProblem(e);
+      if (isInputProblem(pr)) setErr(pr.message);
+      else p.onProblem(pr);
     } finally {
       setBusy(false);
     }
@@ -270,7 +287,7 @@ function BoardStep(p: { ownerKey: string; nightId: Id<"nights">; status: string;
   );
 }
 
-function PolicyStep(p: { ownerKey: string; text: string; summary?: string[]; hasRules: boolean; locked: boolean }) {
+function PolicyStep(p: { ownerKey: string; text: string; summary?: string[]; hasRules: boolean; locked: boolean; problem?: Problem; onRetry: () => unknown }) {
   const setPolicy = useMutation(api.restaurants.setPolicy);
   const [val, setVal] = useState(p.text);
   const [err, setErr] = useState("");
@@ -293,7 +310,9 @@ function PolicyStep(p: { ownerKey: string; text: string; summary?: string[]; has
             try { await setPolicy({ ownerKey: p.ownerKey, text: val }); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
           }}>Save rules</button></div>
         )}
-        {p.summary === undefined ? (
+        {p.problem ? (
+          <div className="notice notice--error" role="alert"><Alert /><span>{p.problem.title}. <button type="button" className="linkbtn" onClick={() => p.onRetry()}>Try again</button></span></div>
+        ) : p.summary === undefined ? (
           <span className="status status--pending" role="status"><Spinner />Reading the rules…</span>
         ) : (
           <div>

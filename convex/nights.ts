@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { flagV, shiftV } from "./schema";
 import { ownedNight, ownedRestaurant, randomToken } from "./lib/access";
 import { buildPreview, matchWorker } from "./lib/preview";
+import { problemV } from "./lib/problems";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -66,7 +67,7 @@ export const setBoard = mutation({
       throw new ConvexError("Use a JPG, PNG or WebP photo under 5 MB.");
     }
     if (night.boardStorageId) await ctx.storage.delete(night.boardStorageId);
-    await ctx.db.patch(nightId, { boardStorageId: storageId, status: "reading", boardError: undefined, shifts: [], flags: [] });
+    await ctx.db.patch(nightId, { boardStorageId: storageId, status: "reading", boardError: undefined, boardProblem: undefined, shifts: [], flags: [] });
     await ctx.scheduler.runAfter(0, internal.ai.readBoard, { nightId });
   },
 });
@@ -102,7 +103,8 @@ export const approve = mutation({
   handler: async (ctx, { ownerKey, nightId }) => {
     const { restaurant, night, tips, workers } = await loadNight(ctx, nightId, ownerKey);
     if (night.status !== "review") throw new ConvexError(night.status === "paying" || night.status === "paid" ? "Already paid out." : "Read the shift board first.");
-    if (!restaurant.rules) throw new ConvexError("Still reading the house policy. Try again in a moment.");
+    if (!restaurant.rules)
+      throw new ConvexError(restaurant.policyProblem ? "Claude couldn’t read the house rules yet, so there’s nothing to split by. Fix or retry the house rules first." : "Still reading the house rules. Try again in a moment.");
     const p = buildPreview(restaurant, night, tips, workers);
     const blocking = p.flags.filter((f) => f.severity === "error" && f.code !== "manager_in_pool");
     if (blocking.length) throw new ConvexError(blocking[0].message);
@@ -134,11 +136,21 @@ export const retryPayout = mutation({
   args: { ownerKey: v.string(), nightId: v.id("nights") },
   handler: async (ctx, { ownerKey, nightId }) => {
     const { night } = await ownedNight(ctx, ownerKey, nightId);
-    if (night.status !== "paying" || night.payoutBatchId || !night.payoutError) throw new ConvexError("Nothing to retry.");
+    if (night.status !== "paying" || night.payoutBatchId || !(night.payoutProblem || night.payoutError)) throw new ConvexError("Nothing to retry.");
     const lines = await ctx.db.query("lines").withIndex("by_night", (q) => q.eq("nightId", nightId)).collect();
     for (const l of lines) if (l.payoutStatus === "failed") await ctx.db.patch(l._id, { payoutStatus: "pending", payoutNote: undefined });
-    await ctx.db.patch(nightId, { payoutError: undefined });
+    await ctx.db.patch(nightId, { payoutError: undefined, payoutProblem: undefined });
     await ctx.scheduler.runAfter(0, internal.payouts.sendNight, { nightId });
+  },
+});
+
+export const retryBoard = mutation({
+  args: { ownerKey: v.string(), nightId: v.id("nights") },
+  handler: async (ctx, { ownerKey, nightId }) => {
+    const { night } = await ownedNight(ctx, ownerKey, nightId);
+    if (night.status !== "open" || !night.boardStorageId) throw new ConvexError("Take a photo of the board first.");
+    await ctx.db.patch(nightId, { status: "reading", boardProblem: undefined, boardError: undefined });
+    await ctx.scheduler.runAfter(0, internal.ai.readBoard, { nightId });
   },
 });
 
@@ -171,8 +183,8 @@ export const applyBoardRead = internalMutation({
 });
 
 export const boardFailed = internalMutation({
-  args: { nightId: v.id("nights"), error: v.string() },
-  handler: async (ctx, { nightId, error }) => {
-    await ctx.db.patch(nightId, { status: "open", boardError: error });
+  args: { nightId: v.id("nights"), problem: problemV },
+  handler: async (ctx, { nightId, problem }) => {
+    await ctx.db.patch(nightId, { status: "open", boardProblem: problem });
   },
 });

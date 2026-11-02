@@ -6,6 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import * as paypal from "./lib/paypal";
 import { payoutStatusV } from "./schema";
 import { fmt } from "./lib/split";
+import { fromPayPal, itemNote, problemV } from "./lib/problems";
 
 const APP_URL = () => process.env.APP_URL ?? "http://localhost:5173";
 const TOPUP = "topup-";
@@ -55,11 +56,7 @@ export const sendNight = internalAction({
       await ctx.scheduler.runAfter(4000, internal.payouts.poll, { batchId: res.batch_header.payout_batch_id, attempt: 0 });
     } catch (e) {
       console.error("sendNight", nightId, e);
-      const raw = e instanceof Error ? e.message : "PayPal error";
-      const error = /INSUFFICIENT_FUNDS|sufficient funds/i.test(raw + JSON.stringify((e as { body?: unknown })?.body ?? ""))
-        ? "The demo's PayPal sandbox account is out of play money, so PayPal held the batch. Nothing was paid. Try again in a moment."
-        : raw;
-      await ctx.runMutation(internal.payouts.batchFailed, { nightId, error });
+      await ctx.runMutation(internal.payouts.batchFailed, { nightId, problem: fromPayPal(e, "payout") });
     }
   },
 });
@@ -76,7 +73,7 @@ export const poll = internalAction({
           senderItemId: it.payout_item.sender_item_id,
           status: paypal.mapItemStatus(it.transaction_status),
           itemId: it.payout_item_id,
-          note: it.errors?.message,
+          note: itemNote(it.transaction_status, it.errors?.name ?? it.errors?.message),
         });
       }
       pending = (b.items ?? []).length === 0 || (b.items ?? []).some((it) => paypal.mapItemStatus(it.transaction_status) === "pending");
@@ -116,7 +113,7 @@ export const sendTopUp = internalAction({
       await ctx.scheduler.runAfter(4000, internal.payouts.poll, { batchId: res.batch_header.payout_batch_id, attempt: 0 });
     } catch (e) {
       console.error("sendTopUp", disputeId, e);
-      await ctx.runMutation(internal.disputes.setTopUp, { disputeId, status: "failed" });
+      await ctx.runMutation(internal.disputes.setTopUp, { disputeId, status: "failed", problem: fromPayPal(e, "topup") });
     }
   },
 });
@@ -124,16 +121,16 @@ export const sendTopUp = internalAction({
 export const batchCreated = internalMutation({
   args: { nightId: v.id("nights"), batchId: v.string(), simulated: v.optional(v.boolean()) },
   handler: async (ctx, { nightId, batchId, simulated }) => {
-    await ctx.db.patch(nightId, { payoutBatchId: batchId, simulated, payoutError: undefined });
+    await ctx.db.patch(nightId, { payoutBatchId: batchId, simulated, payoutError: undefined, payoutProblem: undefined });
   },
 });
 
 export const batchFailed = internalMutation({
-  args: { nightId: v.id("nights"), error: v.string() },
-  handler: async (ctx, { nightId, error }) => {
-    await ctx.db.patch(nightId, { payoutError: error });
+  args: { nightId: v.id("nights"), problem: problemV },
+  handler: async (ctx, { nightId, problem }) => {
+    await ctx.db.patch(nightId, { payoutProblem: problem });
     const lines = await ctx.db.query("lines").withIndex("by_night", (q) => q.eq("nightId", nightId)).collect();
-    for (const l of lines) if (l.payoutStatus === "pending") await ctx.db.patch(l._id, { payoutStatus: "failed", payoutNote: error });
+    for (const l of lines) if (l.payoutStatus === "pending") await ctx.db.patch(l._id, { payoutStatus: "failed", payoutNote: "Held: see the message at the top." });
   },
 });
 

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { errText, money } from "../lib/owner";
+import { money } from "../lib/owner";
+import { ProblemDialog, toProblem, type Problem } from "../ui/Problem";
 import { Check } from "../ui/icons";
 
 declare global {
@@ -18,7 +19,7 @@ function loadSdk(clientId: string) {
     s.id = id;
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&currency=USD&intent=capture&enable-funding=venmo`;
     s.onload = () => res();
-    s.onerror = () => rej(new Error("PayPal didn’t load. Check your connection."));
+    s.onerror = () => rej(new Error("network: PayPal script failed to load"));
     document.head.appendChild(s);
   });
 }
@@ -30,7 +31,7 @@ export default function Tip({ slug }: { slug: string }) {
   const createOrder = useAction(api.tips.createOrder);
   const capture = useAction(api.tips.captureOrder);
   const [cents, setCents] = useState(1000);
-  const [err, setErr] = useState("");
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [done, setDone] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const centsRef = useRef(cents);
@@ -45,17 +46,19 @@ export default function Tip({ slug }: { slug: string }) {
         box.current.innerHTML = "";
         const b = window.paypal.Buttons({
           style: { layout: "vertical", shape: "rect", label: "pay", height: 48 },
-          createOrder: () => createOrder({ slug, cents: centsRef.current }),
-          onApprove: async (d: { orderID: string }) => {
-            await capture({ orderId: d.orderID });
-            setDone(centsRef.current);
+          createOrder: async () => {
+            try { return await createOrder({ slug, cents: centsRef.current }); } catch (e) { setProblem(toProblem(e)); throw e; }
           },
-          onError: (e: unknown) => setErr(errText(e)),
+          onApprove: async (d: { orderID: string }) => {
+            try { await capture({ orderId: d.orderID }); setDone(centsRef.current); } catch (e) { setProblem(toProblem(e)); }
+          },
+          onCancel: () => setProblem({ kind: "cancelled", title: "Tip cancelled", message: "You closed PayPal before paying, so nothing was charged. Tap a button to try again.", retry: false }),
+          onError: (e: unknown) => setProblem(toProblem(e)),
         });
         btn = b;
         return b.render(box.current);
       })
-      .catch((e) => setErr(errText(e)));
+      .catch((e) => setProblem(toProblem(e)));
     return () => btn?.close();
   }, [page?.paypalClientId, page?.open, done, slug, createOrder, capture]);
 
@@ -85,7 +88,7 @@ export default function Tip({ slug }: { slug: string }) {
             </div>
             <p className="small muted">The whole tip goes to the floor, bar and kitchen, split by the house rules.</p>
             {page.paypalClientId ? <div ref={box} style={{ minHeight: 110 }} /> : <div className="notice"><span /><span>PayPal sandbox isn’t connected yet, so guest tips are off in this demo.</span></div>}
-            {err && <p className="help help--error" role="alert">{err}</p>}
+            <ProblemDialog problem={problem} onClose={() => setProblem(null)} />
           </>
         )}
       </div>

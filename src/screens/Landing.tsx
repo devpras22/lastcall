@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { navigate } from "../lib/router";
-import { errText, setOwnerKey } from "../lib/owner";
+import { setOwnerKey } from "../lib/owner";
+import { ProblemDialog, toProblem, type Problem } from "../ui/Problem";
 import { Ticket } from "../ui/Ticket";
 import { Arrow } from "../ui/icons";
 
@@ -19,17 +20,17 @@ const SAMPLE = [
 export default function Landing() {
   const createDemo = useMutation(api.restaurants.createDemo);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [problem, setProblem] = useState<Problem | null>(null);
 
   async function start() {
     setBusy(true);
-    setError("");
+    setProblem(null);
     try {
       const { ownerKey, nightId } = await createDemo({});
       setOwnerKey(ownerKey);
       navigate(`/close/${nightId}`);
     } catch (e) {
-      setError(errText(e));
+      setProblem(toProblem(e));
       setBusy(false);
     }
   }
@@ -47,7 +48,7 @@ export default function Landing() {
             </button>
             <span className="small muted">A sample taqueria, nine staff, real PayPal sandbox.</span>
           </div>
-          <p className="help help--error" role="alert">{error}</p>
+          <ProblemDialog problem={problem} onClose={() => setProblem(null)} onRetry={start} />
         </div>
         <div className="land__rail" aria-label="Example night: each share is a ticket on the rail">
           <div className="rail">

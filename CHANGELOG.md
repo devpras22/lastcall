@@ -7,6 +7,8 @@
 - Video script in `docs/video-script.md`.
 - Live at lastcall-tips.vercel.app (Convex production + Vercel, git-linked).
 - Retry payout button and a plain message when the sandbox account runs out of play money.
+- Error pop-ups everywhere a service can fail: every PayPal and Claude failure is sorted into a plain-language problem (out of play money, bad keys, rate limits, outages, rejected requests, spend limits, unreadable photos, demo caps), saved on the record, and shown in a dialog that says whether money moved, with Try again where it helps. Crashed screens show a recovery page. Tested with real 401s from PayPal and Anthropic.
+- Retry actions for the board read, house rules, payouts and top-ups; type shifts in by hand when there's no photo.
 
 ## 0.2.0 (2026-11-02)
 

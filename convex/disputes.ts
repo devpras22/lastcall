@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { ownedRestaurant } from "./lib/access";
 import { payoutStatusV } from "./schema";
+import { problemV, type Problem } from "./lib/problems";
 
 /** Worker's receipt. The token in the link is the only key; it shows one line and nothing else. */
 export const receipt = query({
@@ -78,6 +79,18 @@ export const decide = mutation({
   },
 });
 
+export const retryTopUp = mutation({
+  args: { ownerKey: v.string(), disputeId: v.id("disputes") },
+  handler: async (ctx, { ownerKey, disputeId }) => {
+    const r = await ownedRestaurant(ctx, ownerKey);
+    const d = await ctx.db.get(disputeId);
+    if (!d || d.restaurantId !== r._id) throw new ConvexError("Not found");
+    if (d.status !== "approved" || d.topUpStatus !== "failed" || d.topUpBatchId) throw new ConvexError("Nothing to retry.");
+    await ctx.db.patch(disputeId, { topUpStatus: "pending", problem: undefined });
+    await ctx.scheduler.runAfter(0, internal.payouts.sendTopUp, { disputeId });
+  },
+});
+
 // ---- internal ----
 
 export const internalGet = internalQuery({
@@ -101,6 +114,7 @@ export const saveVerdict = internalMutation({
     verdict: v.string(),
     claimedHours: v.optional(v.number()),
     topUpCents: v.optional(v.number()),
+    problem: v.optional(problemV),
   },
   handler: async (ctx, { disputeId, ...rest }) => {
     await ctx.db.patch(disputeId, rest);
@@ -113,6 +127,7 @@ export async function applyTopUp(
   status: Infer<typeof payoutStatusV>,
   itemId?: string,
   batchId?: string,
+  problem?: Problem,
 ) {
   const d = await ctx.db.get(disputeId);
   if (!d || d.topUpStatus === "success") return;
@@ -120,11 +135,12 @@ export async function applyTopUp(
     topUpStatus: status,
     ...(itemId ? { topUpItemId: itemId } : {}),
     ...(batchId ? { topUpBatchId: batchId } : {}),
+    problem: status === "failed" ? problem : undefined,
     ...(status === "success" ? { status: "paid" as const } : {}),
   });
 }
 
 export const setTopUp = internalMutation({
-  args: { disputeId: v.id("disputes"), status: payoutStatusV, itemId: v.optional(v.string()), batchId: v.optional(v.string()) },
-  handler: (ctx, a) => applyTopUp(ctx, a.disputeId, a.status, a.itemId, a.batchId),
+  args: { disputeId: v.id("disputes"), status: payoutStatusV, itemId: v.optional(v.string()), batchId: v.optional(v.string()), problem: v.optional(problemV) },
+  handler: (ctx, a) => applyTopUp(ctx, a.disputeId, a.status, a.itemId, a.batchId, a.problem),
 });

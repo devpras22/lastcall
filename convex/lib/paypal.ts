@@ -1,10 +1,10 @@
 // PayPal REST (sandbox) called directly. Runs inside Convex actions (fetch runtime).
 // Every call: timeout, retry with backoff+jitter on 429/5xx/network only, idempotency header on writes.
 
-const BASE = process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com";
+const base = () => process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com";
 
 /** PayPal's sandbox rejects recipient_wallet VENMO; Venmo payouts only run against live. */
-export const isSandbox = () => BASE.includes("sandbox");
+export const isSandbox = () => base().includes("sandbox");
 
 export const paypalConfigured = () => !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_SECRET);
 
@@ -24,7 +24,7 @@ async function request(path: string, init: RequestInit & { timeoutMs?: number } 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), init.timeoutMs ?? 15000);
   try {
-    const res = await fetch(BASE + path, { ...init, signal: ctrl.signal });
+    const res = await fetch(base() + path, { ...init, signal: ctrl.signal });
     if ((res.status === 429 || res.status >= 500) && attempt < 3) {
       await sleep(400 * 2 ** attempt + Math.random() * 300);
       return request(path, init, attempt + 1);
@@ -139,7 +139,7 @@ export async function createPayoutBatch(senderBatchId: string, subject: string, 
 
 export type BatchStatus = {
   batch_header: { payout_batch_id: string; batch_status: string };
-  items?: { payout_item_id: string; transaction_status: string; payout_item: { sender_item_id: string }; errors?: { message?: string } }[];
+  items?: { payout_item_id: string; transaction_status: string; payout_item: { sender_item_id: string }; errors?: { name?: string; message?: string } }[];
 };
 
 export async function getPayoutBatch(batchId: string) {

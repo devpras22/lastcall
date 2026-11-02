@@ -203,6 +203,23 @@ h3 { font-size: var(--text-lg); max-width: 40ch; line-height: 1.15; }
 .sheet__grab::before { content: ""; width: 40px; height: 5px; border-radius: 3px; background: var(--color-rule-strong); }
 .sheet__grab:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; border-radius: 6px; }
 
+/* ---------- problem pop-up ---------- */
+.problem { width: min(calc(100% - 2 * var(--space-md)), 30rem); max-width: none; padding: 0; border: 0; border-radius: var(--radius-card); background: var(--color-paper); color: var(--color-ink); opacity: 0; transform: translateY(8px); transition: opacity var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out), overlay var(--dur-short) allow-discrete, display var(--dur-short) allow-discrete; }
+.problem[open] { opacity: 1; transform: none; }
+@starting-style { .problem[open] { opacity: 0; transform: translateY(8px); } }
+.problem::backdrop { background: var(--color-scrim); }
+.problem__card { display: grid; gap: var(--space-sm); padding: var(--space-lg); }
+.problem__card--page { max-width: 32rem; background: var(--color-ticket); border-radius: var(--radius-card); }
+.problem__card h2 { font-size: var(--text-xl); }
+.problem__card p { color: var(--color-ink-2); }
+.problem__icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
+.problem__icon svg { width: 20px; height: 20px; }
+.problem__icon[data-kind="temp"] { background: var(--color-warn-wash); color: var(--color-warn-ink); }
+.problem__icon[data-kind="stop"] { background: var(--color-error-wash); color: var(--color-error-ink); }
+.problem__detail { font-size: var(--text-xs); color: var(--color-muted); overflow-wrap: anywhere; }
+.problem__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-xs); }
+@media (prefers-reduced-motion: reduce) { .problem, .problem[open] { transform: none; } }
+
 /* ---------- disputes panel ---------- */
 .disputes { display: grid; gap: var(--space-md); }
 .dispute { display: grid; gap: var(--space-xs); padding: var(--space-md); background: var(--color-paper-2); border-radius: var(--radius-card); }

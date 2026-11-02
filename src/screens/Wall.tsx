@@ -3,15 +3,18 @@ import { useMutation, useQuery } from "convex/react";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { errText, getOwnerKey, hrs, money } from "../lib/owner";
+import { getOwnerKey, hrs, money } from "../lib/owner";
 import { onLinkClick } from "../lib/router";
 import { Ticket, TicketSkeleton, type PayoutStatus } from "../ui/Ticket";
 import { Alert, Info } from "../ui/icons";
 import { CloseOutHome } from "./CloseOut";
+import { ProblemDialog, toProblem, useStoredProblem, type Problem } from "../ui/Problem";
 
 export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
   const ownerKey = getOwnerKey() ?? "";
   const data = useQuery(api.nights.get, ownerKey ? { ownerKey, nightId } : "skip");
+  const retry = useMutation(api.nights.retryPayout);
+  const payoutPop = useStoredProblem(data?.night.payoutProblem, `payout:${nightId}`);
   if (!ownerKey) return <CloseOutHome />;
   if (data === undefined)
     return <div className="container page wall"><div className="tickets">{Array.from({ length: 9 }, (_, i) => <TicketSkeleton key={i} />)}</div></div>;
@@ -49,10 +52,11 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
         {night.simulated && <span className="badge" style={{ marginLeft: "var(--space-xs)" }}>Simulated: PayPal sandbox keys not set</span>}
         {!night.simulated && data.sandbox && <span className="badge" style={{ marginLeft: "var(--space-xs)" }}>PayPal sandbox: Venmo payouts go to the PayPal wallet here, Venmo runs in live mode</span>}
       </p>
-      {night.payoutError && (
+      <ProblemDialog problem={payoutPop.open} onClose={payoutPop.dismiss} onRetry={() => retry({ ownerKey, nightId })} />
+      {(night.payoutProblem || night.payoutError) && (
         <div className="notice notice--error" role="alert" style={{ marginBottom: "var(--space-md)" }}>
           <Alert />
-          <span>{night.payoutError} <RetryButton ownerKey={ownerKey} nightId={nightId} /></span>
+          <span>{night.payoutProblem ? <><strong>{night.payoutProblem.title}.</strong> {night.payoutProblem.message}</> : night.payoutError} <RetryButton ownerKey={ownerKey} nightId={nightId} /></span>
         </div>
       )}
 
@@ -90,15 +94,21 @@ function RetryButton({ ownerKey, nightId }: { ownerKey: string; nightId: Id<"nig
   );
 }
 
-type D = { _id: Id<"disputes">; lineId: Id<"lines">; message: string; status: string; verdict?: string; claimedHours?: number; topUpCents?: number; topUpStatus?: string };
+type D = { _id: Id<"disputes">; lineId: Id<"lines">; message: string; status: string; verdict?: string; claimedHours?: number; topUpCents?: number; topUpStatus?: string; problem?: Problem };
 type Ln = { _id: Id<"lines">; name: string; hours: number; amountCents: number };
 
 function Corrections({ ownerKey, disputes, lines }: { ownerKey: string; disputes: D[]; lines: Ln[] }) {
   const decide = useMutation(api.disputes.decide);
+  const retryTopUp = useMutation(api.disputes.retryTopUp);
+  const failed = disputes.find((d) => d.problem && d.topUpStatus === "failed");
+  const topUpPop = useStoredProblem(failed?.problem, `topup:${failed?._id}`);
+  const [thrown, setThrown] = useState<Problem | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   return (
     <section style={{ marginTop: "var(--space-2xl)" }} aria-labelledby="corr-h">
+      <ProblemDialog problem={thrown ?? topUpPop.open} onClose={() => (thrown ? setThrown(null) : topUpPop.dismiss())}
+        onRetry={!thrown && failed ? () => retryTopUp({ ownerKey, disputeId: failed._id }) : undefined} />
       <h2 id="corr-h">Corrections</h2>
       {disputes.length === 0 ? (
         <p className="muted" style={{ marginTop: "var(--space-xs)" }}>When someone says their share is off, it shows up here with Claude’s read of the board and a top-up ready to approve.</p>
@@ -124,7 +134,7 @@ function Corrections({ ownerKey, disputes, lines }: { ownerKey: string; disputes
                   <div className="row">
                     <button type="button" className="btn btn--go" disabled={busy === d._id} aria-busy={busy === d._id} onClick={async () => {
                       setBusy(d._id); setErr("");
-                      try { await decide({ ownerKey, disputeId: d._id, approve: true }); } catch (e) { setErr(errText(e)); } finally { setBusy(null); }
+                      try { await decide({ ownerKey, disputeId: d._id, approve: true }); } catch (e) { const p = toProblem(e); if (p.kind === "input") setErr(p.message); else setThrown(p); } finally { setBusy(null); }
                     }}>Send {money(d.topUpCents)} top-up for {d.claimedHours}h</button>
                     <button type="button" className="btn btn--quiet" disabled={busy === d._id} onClick={() => decide({ ownerKey, disputeId: d._id, approve: false })}>Decline</button>
                   </div>

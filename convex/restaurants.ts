@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { ownedRestaurant, randomToken, serviceDate } from "./lib/access";
+import { dailyLimit, demoLimit, fail } from "./lib/problems";
 import { DEMO_CARD_TIPS_CENTS, DEMO_NAME, DEMO_PAYPAL_TIPS, DEMO_POLICY, demoWorkers } from "./lib/demo";
 
 /** A fresh copy of Rosa's for whoever clicks "Close out a demo night". */
@@ -51,7 +52,16 @@ export const setPolicy = mutation({
     const r = await ownedRestaurant(ctx, ownerKey);
     const t = text.trim();
     if (t.length < 10 || t.length > 1500) throw new ConvexError("Write the policy in 10 to 1,500 characters.");
-    await ctx.db.patch(r._id, { policyText: t, rules: undefined, rulesSummary: undefined });
+    await ctx.db.patch(r._id, { policyText: t, rules: undefined, rulesSummary: undefined, policyProblem: undefined });
+    await ctx.scheduler.runAfter(0, internal.ai.parsePolicy, { restaurantId: r._id });
+  },
+});
+
+export const retryPolicy = mutation({
+  args: { ownerKey: v.string() },
+  handler: async (ctx, { ownerKey }) => {
+    const r = await ownedRestaurant(ctx, ownerKey);
+    await ctx.db.patch(r._id, { policyProblem: undefined, rulesSummary: undefined });
     await ctx.scheduler.runAfter(0, internal.ai.parsePolicy, { restaurantId: r._id });
   },
 });
@@ -104,10 +114,10 @@ export const takeAiCall = internalMutation({
   handler: async (ctx, { restaurantId }) => {
     const r = await ctx.db.get(restaurantId);
     if (!r) throw new ConvexError("Not found");
-    if (r.aiCalls >= PER_RESTAURANT) throw new ConvexError("This demo restaurant has used its AI allowance. Start a new demo night.");
+    if (r.aiCalls >= PER_RESTAURANT) throw fail(demoLimit());
     const day = new Date().toISOString().slice(0, 10);
     const u = await ctx.db.query("usage").withIndex("by_day", (q) => q.eq("day", day)).unique();
-    if (u && u.aiCalls >= PER_DAY) throw new ConvexError("The demo has hit today's AI limit. Try again tomorrow.");
+    if (u && u.aiCalls >= PER_DAY) throw fail(dailyLimit());
     if (u) await ctx.db.patch(u._id, { aiCalls: u.aiCalls + 1 });
     else await ctx.db.insert("usage", { day, aiCalls: 1 });
     await ctx.db.patch(restaurantId, { aiCalls: r.aiCalls + 1 });

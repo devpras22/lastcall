@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { errText, hrs, money } from "../lib/owner";
+import { hrs, money } from "../lib/owner";
+import { ProblemDialog, toProblem, type Problem } from "../ui/Problem";
 import { StatusText, type PayoutStatus } from "../ui/Ticket";
 import { Sheet } from "../ui/Sheet";
 import { Spinner } from "../ui/icons";
@@ -12,6 +13,7 @@ export default function Receipt({ token }: { token: string }) {
   const [sheet, setSheet] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [busy, setBusy] = useState(false);
 
   if (r === undefined)
@@ -25,7 +27,7 @@ export default function Receipt({ token }: { token: string }) {
 
   async function send() {
     setBusy(true); setErr("");
-    try { await open({ token, message: msg }); setMsg(""); setSheet(false); } catch (e) { setErr(errText(e)); } finally { setBusy(false); }
+    try { await open({ token, message: msg }); setMsg(""); setSheet(false); } catch (e) { const p = toProblem(e); if (p.kind === "input") setErr(p.message); else { setSheet(false); setProblem(p); } } finally { setBusy(false); }
   }
 
   return (
@@ -70,6 +72,7 @@ export default function Receipt({ token }: { token: string }) {
         <button type="button" className="btn btn--quiet" onClick={() => setSheet(true)}>Something’s off?</button>
       )}
 
+      <ProblemDialog problem={problem} onClose={() => setProblem(null)} onRetry={problem?.retry ? send : undefined} />
       <Sheet open={sheet} onClose={() => setSheet(false)} label="Tell your manager what’s off">
         <h2 style={{ fontSize: "var(--text-xl)" }}>What’s off?</h2>
         <div className="field">

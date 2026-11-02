@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import * as paypal from "./lib/paypal";
 import { randomToken } from "./lib/access";
+import { fail, fromPayPal } from "./lib/problems";
 
 /** Public tip page: just the restaurant name and whether tonight is still open. */
 export const page = query({
@@ -37,7 +38,13 @@ export const createOrder = action({
     if (!Number.isInteger(cents) || cents < 100 || cents > 50_000) throw new ConvexError("Tips are $1 to $500.");
     const t = await ctx.runQuery(internal.tips.target, { slug });
     if (!t) throw new ConvexError("This restaurant isn't taking tips right now.");
-    const order = await paypal.createTipOrder({ cents, nightId: t.nightId, restaurant: t.restaurant, requestId: `tip-${randomToken(8)}` });
+    let order: { id: string };
+    try {
+      order = await paypal.createTipOrder({ cents, nightId: t.nightId, restaurant: t.restaurant, requestId: `tip-${randomToken(8)}` });
+    } catch (e) {
+      console.error("createOrder", slug, e);
+      throw fail(fromPayPal(e, "tip"));
+    }
     await ctx.runMutation(internal.tips.record, { restaurantId: t.restaurantId, nightId: t.nightId, orderId: order.id, cents, status: "created" });
     return order.id;
   },
@@ -50,7 +57,13 @@ export const captureOrder = action({
     const tip = await ctx.runQuery(internal.tips.byOrder, { orderId });
     if (!tip) throw new ConvexError("Unknown order.");
     if (tip.status === "captured") return { ok: true };
-    const res = await paypal.captureOrder(orderId);
+    let res: Awaited<ReturnType<typeof paypal.captureOrder>>;
+    try {
+      res = await paypal.captureOrder(orderId);
+    } catch (e) {
+      console.error("captureOrder", orderId, e);
+      throw fail(fromPayPal(e, "capture"));
+    }
     const cap = res.purchase_units[0]?.payments?.captures?.[0];
     if (res.status !== "COMPLETED" || !cap) throw new ConvexError("PayPal didn't complete that payment.");
     const cents = Math.round(Number(cap.amount.value) * 100);
