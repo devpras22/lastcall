@@ -4,7 +4,7 @@
 
 **Close out the night's tip pool from one photo of the shift board. Everyone is paid by PayPal before they leave, with a receipt that shows the math.**
 
-**[Try the live demo →](https://lastcall.vercel.app)** No sign-up. You get your own copy of a sample taqueria, and real PayPal sandbox money moves.
+**[Try the live demo →](https://lastcall-tips.vercel.app)** No sign-up. You get your own copy of a sample taqueria, and real PayPal sandbox money moves.
 
 Built for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com).
 

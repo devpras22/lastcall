@@ -15,7 +15,7 @@ Recording: screen recording of the real app (QuickTime, 1440x900 browser window)
 | 1:25 to 1:50 | "Approve and pay". Payout wall, tickets flip to Paid one by one. Cut to a phone getting the PayPal email. | "One tap. One PayPal Payouts batch pays the whole team. Each ticket flips as PayPal's webhooks confirm the money landed." |
 | 1:50 to 2:15 | Phone: Fatima's receipt. "Something's off?", types "I stayed till 1am". Claude's reply. Back to desktop: Approve top-up, it pays. | "Every worker gets a receipt that shows the math. Fatima says she stayed till 1. Claude checks the photo, agrees the time was smudged, and the manager sends a top-up through PayPal." |
 | 2:15 to 2:30 | Ledger (AG Grid). | "Every night and every share, in one ledger." |
-| 2:30 to 2:45 | Architecture card: Claude (board, rules, disputes) / Convex / PayPal Orders, Payouts, Webhooks. Then the URL and repo. | "No POS. No cash. No napkin math. Try it at lastcall.vercel.app." |
+| 2:30 to 2:45 | Architecture card: Claude (board, rules, disputes) / Convex / PayPal Orders, Payouts, Webhooks. Then the URL and repo. | "No POS. No cash. No napkin math. Try it at lastcall-tips.vercel.app." |
 
 ## Shots to film on a real phone
 1. Scanning the tip QR and paying $10 with the sandbox buyer login (Pras logs in).
