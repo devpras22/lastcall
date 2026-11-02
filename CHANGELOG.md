@@ -5,6 +5,8 @@
 - Guest-tip QR on the close-out screen (PayPal Checkout straight into tonight's pool).
 - Phone: sticky pay bar on the close-out that jumps to the split.
 - Video script in `docs/video-script.md`.
+- Live at lastcall-tips.vercel.app (Convex production + Vercel, git-linked).
+- Retry payout button and a plain message when the sandbox account runs out of play money.
 
 ## 0.2.0 (2026-11-02)
 

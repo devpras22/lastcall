@@ -49,7 +49,12 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
         {night.simulated && <span className="badge" style={{ marginLeft: "var(--space-xs)" }}>Simulated: PayPal sandbox keys not set</span>}
         {!night.simulated && data.sandbox && <span className="badge" style={{ marginLeft: "var(--space-xs)" }}>PayPal sandbox: Venmo payouts go to the PayPal wallet here, Venmo runs in live mode</span>}
       </p>
-      {night.payoutError && <div className="notice notice--error" role="alert" style={{ marginBottom: "var(--space-md)" }}><Alert /><span>{night.payoutError}</span></div>}
+      {night.payoutError && (
+        <div className="notice notice--error" role="alert" style={{ marginBottom: "var(--space-md)" }}>
+          <Alert />
+          <span>{night.payoutError} <RetryButton ownerKey={ownerKey} nightId={nightId} /></span>
+        </div>
+      )}
 
       <div className="rail">
         <div className="tickets" style={{ marginTop: "var(--space-lg)" }}>
@@ -72,6 +77,16 @@ export default function Wall({ nightId }: { nightId: Id<"nights"> }) {
 
       <Corrections ownerKey={ownerKey} disputes={disputes} lines={lines} />
     </div>
+  );
+}
+
+function RetryButton({ ownerKey, nightId }: { ownerKey: string; nightId: Id<"nights"> }) {
+  const retry = useMutation(api.nights.retryPayout);
+  const [busy, setBusy] = useState(false);
+  return (
+    <button type="button" className="linkbtn" disabled={busy} aria-busy={busy} onClick={async () => { setBusy(true); try { await retry({ ownerKey, nightId }); } finally { setBusy(false); } }}>
+      {busy ? "Sending again…" : "Retry payout"}
+    </button>
   );
 }
 

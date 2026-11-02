@@ -55,7 +55,11 @@ export const sendNight = internalAction({
       await ctx.scheduler.runAfter(4000, internal.payouts.poll, { batchId: res.batch_header.payout_batch_id, attempt: 0 });
     } catch (e) {
       console.error("sendNight", nightId, e);
-      await ctx.runMutation(internal.payouts.batchFailed, { nightId, error: e instanceof Error ? e.message : "PayPal error" });
+      const raw = e instanceof Error ? e.message : "PayPal error";
+      const error = /INSUFFICIENT_FUNDS|sufficient funds/i.test(raw + JSON.stringify((e as { body?: unknown })?.body ?? ""))
+        ? "The demo's PayPal sandbox account is out of play money, so PayPal held the batch. Nothing was paid. Try again in a moment."
+        : raw;
+      await ctx.runMutation(internal.payouts.batchFailed, { nightId, error });
     }
   },
 });

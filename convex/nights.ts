@@ -129,6 +129,19 @@ export const approve = mutation({
   },
 });
 
+/** Re-send a batch that PayPal refused (e.g. sandbox out of funds). Same sender_batch_id, so it can never double-pay. */
+export const retryPayout = mutation({
+  args: { ownerKey: v.string(), nightId: v.id("nights") },
+  handler: async (ctx, { ownerKey, nightId }) => {
+    const { night } = await ownedNight(ctx, ownerKey, nightId);
+    if (night.status !== "paying" || night.payoutBatchId || !night.payoutError) throw new ConvexError("Nothing to retry.");
+    const lines = await ctx.db.query("lines").withIndex("by_night", (q) => q.eq("nightId", nightId)).collect();
+    for (const l of lines) if (l.payoutStatus === "failed") await ctx.db.patch(l._id, { payoutStatus: "pending", payoutNote: undefined });
+    await ctx.db.patch(nightId, { payoutError: undefined });
+    await ctx.scheduler.runAfter(0, internal.payouts.sendNight, { nightId });
+  },
+});
+
 // ---- internal ----
 
 export const internalGet = internalQuery({
