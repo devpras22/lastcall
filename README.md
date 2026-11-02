@@ -4,7 +4,7 @@
 
 **Close out the night's tip pool from one photo of the shift board. Everyone is paid by PayPal before they leave, with a receipt that shows the math.**
 
-**[Try the live demo →](https://lastcall-tips.vercel.app)** No sign-up. Close out a sample taqueria's night in one click, or set up your own restaurant and staff in two minutes. Real PayPal sandbox money moves either way.
+**[Try the live demo →](https://lastcall.pras.fun)** No sign-up. Close out a sample taqueria's night in one click, or set up your own restaurant and staff in two minutes. Real PayPal sandbox money moves either way.
 
 Built for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com).
 

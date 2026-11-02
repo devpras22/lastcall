@@ -11,7 +11,7 @@ Last Call: Tip Pools Paid by PayPal Before Close
 Snap the shift board and everyone’s tips land in PayPal before they clock out. Claude reads the hours. Code does the math. No napkins, no cash, no POS.
 
 ## Try it out (links)
-- https://lastcall-tips.vercel.app
+- https://lastcall.pras.fun
 - https://github.com/devpras22/lastcall
 
 ## Video
