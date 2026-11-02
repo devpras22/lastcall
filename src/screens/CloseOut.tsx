@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { errText, getOwnerKey, hrs, money } from "../lib/owner";
 import { navigate, onLinkClick } from "../lib/router";
+import { QRCodeSVG } from "qrcode.react";
 import { Ticket, TicketSkeleton } from "../ui/Ticket";
 import { Alert, Camera, Info, Spinner } from "../ui/icons";
 
@@ -54,6 +55,15 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
   const approve = useMutation(api.nights.approve);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
+  const splitRef = useRef<HTMLElement>(null);
+  const [splitInView, setSplitInView] = useState(false);
+  useEffect(() => {
+    const el = splitRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setSplitInView(e.isIntersecting), { rootMargin: "0px 0px -40% 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [data === undefined]);
 
   if (!ownerKey) return <CloseOutHome />;
   if (data === undefined)
@@ -105,7 +115,7 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
           </ol>
         </div>
 
-        <section className="closeout__rail" aria-labelledby="split-h">
+        <section className="closeout__rail" aria-labelledby="split-h" ref={splitRef}>
           <div className="rail">
             <div className="rail__head">
               <h2 id="split-h">The split</h2>
@@ -146,6 +156,14 @@ export default function CloseOut({ nightId }: { nightId: Id<"nights"> }) {
           </div>
         </section>
       </div>
+      {night.shifts.length > 0 && !splitInView && (
+        <div className="paybar">
+          <span className="money">{money(paid.reduce((a, l) => a + l.amountCents, 0))} <span className="small muted">to {paid.length}</span></span>
+          <button type="button" className="btn btn--go" onClick={() => splitRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            {locked ? "See the split" : "Review and pay"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -180,10 +198,15 @@ function TipsStep(p: { ownerKey: string; nightId: Id<"nights">; totals: { paypal
           <div className="row">
             <input id="extra" className="input input--money" style={{ width: "10rem" }} inputMode="decimal" autoComplete="off" name="extra" value={val}
               onChange={(e) => setVal(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && save()} disabled={p.locked} />
-            <a className="linkbtn small" href={`/tip/${p.slug}`} target="_blank" rel="noreferrer">Open the guest tip page</a>
           </div>
           <p className={`help${err ? " help--error" : ""}`}>{err}</p>
         </div>
+        {!p.locked && (
+          <a className="qr qr--tip" href={`/tip/${p.slug}`} target="_blank" rel="noreferrer">
+            <QRCodeSVG value={`${location.origin}/tip/${p.slug}`} size={88} bgColor="transparent" fgColor="currentColor" level="M" />
+            <span><strong>Guests scan to tip with PayPal.</strong><br /><span className="small muted">It lands in tonight’s pool the moment they pay.</span></span>
+          </a>
+        )}
       </div>
     </li>
   );

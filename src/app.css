@@ -55,6 +55,13 @@ h3 { font-size: var(--text-lg); max-width: 40ch; line-height: 1.15; }
 .linkbtn:hover { text-decoration-color: var(--color-accent-edge); }
 .linkbtn:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: 2px; }
 
+/* ---------- phone pay bar ---------- */
+.paybar { position: fixed; inset: auto 0 0 0; z-index: var(--z-sticky); display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); padding: var(--space-sm) var(--gutter) calc(var(--space-sm) + env(safe-area-inset-bottom)); background: var(--color-paper); border-top: 1px solid var(--color-rule); }
+.paybar .money { font-size: var(--text-lg); }
+.paybar .btn { min-height: 44px; }
+@media (min-width: 64rem) { .paybar { display: none; } }
+@media (max-width: 64rem) { .closeout { padding-bottom: var(--space-3xl); } }
+
 /* ---------- inputs ---------- */
 .field { display: grid; gap: var(--space-2xs); }
 .field label, .label { font-size: var(--text-sm); color: var(--color-ink-2); }
@@ -144,6 +151,9 @@ h3 { font-size: var(--text-lg); max-width: 40ch; line-height: 1.15; }
 .wall__sum dd { margin: 0; font-family: var(--font-outlier); font-size: var(--text-2xl); font-variant-numeric: tabular-nums; }
 .qr { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--space-sm); align-items: center; font-family: var(--font-body); }
 .qr svg { width: 64px; height: 64px; }
+.qr--tip { grid-template-columns: 96px minmax(0, 1fr); padding: var(--space-sm); background: var(--color-ticket); border-radius: var(--radius-card); text-decoration: none; color: var(--color-ink); }
+.qr--tip svg { width: 88px; height: 88px; }
+.qr--tip:hover strong { text-decoration: underline; text-decoration-thickness: 1px; }
 
 /* ---------- notices ---------- */
 .notice { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-input); background: var(--color-paper-2); font-size: var(--text-sm); color: var(--color-ink-2); }

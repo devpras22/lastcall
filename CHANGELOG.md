@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Guest-tip QR on the close-out screen (PayPal Checkout straight into tonight's pool).
+- Phone: sticky pay bar on the close-out that jumps to the split.
+- Video script in `docs/video-script.md`.
+
 ## 0.2.0 (2026-11-02)
 
 - Real PayPal sandbox payouts verified end to end (9 of 9 paid, webhooks verified). Sandbox rejects the Venmo wallet, so Venmo items go to the PayPal wallet in sandbox, with a note on screen.
