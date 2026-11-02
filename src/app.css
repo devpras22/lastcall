@@ -234,7 +234,7 @@ h3 { font-size: var(--text-lg); max-width: 40ch; line-height: 1.15; }
 .staff__row > div:first-child { min-width: 0; overflow-wrap: anywhere; }
 .staff__row > .row { flex-wrap: nowrap; flex-shrink: 0; }
 .staff__row .status { white-space: normal; align-items: flex-start; }
-.staff__row .status svg { margin-top: 2px; }
+.staff__row .status svg { margin-top: var(--space-3xs); }
 .staff__row:last-child { border-bottom: 1px solid var(--color-rule); }
 .staff__form { display: grid; gap: var(--space-sm); padding: var(--space-md); background: var(--color-paper-2); border-radius: var(--radius-card); margin-top: var(--space-sm); width: 100%; }
 .joincard { display: grid; gap: var(--space-md); padding: var(--space-lg); background: var(--color-ticket); border-radius: var(--radius-card); }
